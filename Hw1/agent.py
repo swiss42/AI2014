@@ -53,3 +53,10 @@ class IdaStarSearchAgent(SearchAgent):
         """
         return True
 
+    def idaStar(self, observations):
+        """Depth first search will be implemented first"""
+        r = observations[0]
+        c = observations[1]
+
+        
+

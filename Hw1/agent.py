@@ -24,12 +24,14 @@ class IdaStarSearchAgent(SearchAgent):
         self.backpointers = {}
         self.parents = {}
         self.children = {}
+        self.depth = 0
 
     def initialize(self, init_info):
         """
         Initializes the agent upon reset
         """
         self.action_info = init_info.actions
+        self.depth_limit = 0
         #self.constraints = init_info.actions
         return True
 
@@ -68,6 +70,13 @@ class IdaStarSearchAgent(SearchAgent):
         # get observation of where we are
         r = observations[0]
         c = observations[1]
+
+        # if self.depth >= self.depth_limit:
+        #     self.depth_limit += 1
+        #     print "the depth limit is: %d" % (self.depth_limit)
+        #     print "the depth is: %d" % (self.depth)
+        #     get_environment().teleport(self, 0, 0)
+        #     self.reset()
         
         # have we visted this position?
         if (r, c) not in self.visited:
@@ -93,7 +102,15 @@ class IdaStarSearchAgent(SearchAgent):
         current = None
         for (rd, cd) in children:
             if (rd, cd) not in self.visited:
+                self.depth += 1
 
+                if self.depth >= self.depth_limit:
+                    self.depth_limit += 1
+                    print "the depth limit is: %d" % (self.depth_limit)
+                    print "the depth is: %d" % (self.depth)
+                    get_environment().teleport(self, 0, 0)
+                    self.reset()
+                    return 4
                 # making a move
                 current = (rd, cd) 
 
@@ -102,6 +119,7 @@ class IdaStarSearchAgent(SearchAgent):
 
             # making a move
             current = self.parents[(r, c)]
+            self.depth -= 1
 
         # mark as visited and set marker
         self.visited.append((r, c))

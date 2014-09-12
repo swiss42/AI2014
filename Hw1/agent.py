@@ -91,12 +91,11 @@ class IdaStarSearchAgent(SearchAgent):
         # if we have been here check if there are other children we could visit
         children = self.children[(r, c)]
         current = None
-        for (rd, rd) in children:
-            if (rd, cd) not self.visted:
+        for (rd, cd) in children:
+            if (rd, cd) not in self.visited:
 
                 # making a move
                 current = (rd, cd) 
-                self.visited.append((r, c))
 
         # if not, then we need to backtrack
         if current == None:
@@ -104,16 +103,12 @@ class IdaStarSearchAgent(SearchAgent):
             # making a move
             current = self.parents[(r, c)]
 
+        # mark as visited and set marker
+        self.visited.append((r, c))
+        get_environment().mark_maze_blue(r, c)
+
         # return action
         return get_action_index((current[0] - r, current[1] - c))
-
-
-
-
-        # remember how to get back
-        '''if (r + rd, c + cd) not in self.backpointers:
-            self.backpointers[(r + rd, c + cd)] = (r, c)
-        return v'''
 
 
 

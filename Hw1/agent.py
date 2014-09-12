@@ -70,13 +70,15 @@ class IdaStarSearchAgent(SearchAgent):
         # get observation of where we are
         r = observations[0]
         c = observations[1]
+        d = None
 
-        # if self.depth >= self.depth_limit:
-        #     self.depth_limit += 1
-        #     print "the depth limit is: %d" % (self.depth_limit)
-        #     print "the depth is: %d" % (self.depth)
-        #     get_environment().teleport(self, 0, 0)
-        #     self.reset()
+        if self.depth >= self.depth_limit:
+            self.depth_limit += 1
+            print "the depth limit is: %d" % (self.depth_limit)
+            print "the depth is: %d" % (self.depth)
+            #get_environment().teleport(self, 0, 0)
+            self.reset()
+            return 4
         
         # have we visted this position?
         if (r, c) not in self.visited:
@@ -104,13 +106,6 @@ class IdaStarSearchAgent(SearchAgent):
             if (rd, cd) not in self.visited:
                 self.depth += 1
 
-                if self.depth >= self.depth_limit:
-                    self.depth_limit += 1
-                    print "the depth limit is: %d" % (self.depth_limit)
-                    print "the depth is: %d" % (self.depth)
-                    get_environment().teleport(self, 0, 0)
-                    self.reset()
-                    return 4
                 # making a move
                 current = (rd, cd) 
 

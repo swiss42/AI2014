@@ -24,6 +24,7 @@ class IdaStarSearchAgent(SearchAgent):
         self.backpointers = {}
         self.parents = {}
         self.children = {}
+        self.open = {} #nodes not yet expanded
         self.depth = 0
 
     def initialize(self, init_info):

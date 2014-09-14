@@ -19,12 +19,13 @@ class IdaStarSearchAgent(SearchAgent):
         """
         Reset the agent
         """
-        self.open = []
+        self.open = {}
         self.visited = []
         self.backpointers = {}
         self.parents = {}
         self.children = {}
         self.depth = 0
+        #TODO: make open list to keep track of total depth reached
 
     def initialize(self, init_info):
         """
@@ -70,15 +71,6 @@ class IdaStarSearchAgent(SearchAgent):
         # get observation of where we are
         r = observations[0]
         c = observations[1]
-        d = None
-
-        if self.depth >= self.depth_limit:
-            self.depth_limit += 1
-            print "the depth limit is: %d" % (self.depth_limit)
-            print "the depth is: %d" % (self.depth)
-            #get_environment().teleport(self, 0, 0)
-            self.reset()
-            return 4
         
         # have we visted this position?
         if (r, c) not in self.visited:
@@ -93,21 +85,28 @@ class IdaStarSearchAgent(SearchAgent):
 
                 # check if we should visit this child
                 if not observations[2 + m] and (r2, c2) not in self.visited:
+                    self.open[(r2, c2)] = self.depth + 1 # add to open list
                     children.append((r2, c2))
                     self.parents[(r2, c2)] = (r, c)
 
             # remember who the children of this position are
             self.children[(r, c)] = children
+            del self.open[(r, c)] # remove from open list
+
+        # check if everything at depth limit has been searched
+        if self.open    
 
         # if we have been here check if there are other children we could visit
         children = self.children[(r, c)]
         current = None
-        for (rd, cd) in children:
-            if (rd, cd) not in self.visited:
-                self.depth += 1
+        if self.depth + 1 <= self.depth_limit:
+            for (rd, cd) in children:
+                if (rd, cd) not in self.visited:
 
-                # making a move
-                current = (rd, cd) 
+                    # making a move
+                    current = (rd, cd)
+                    self.depth += 1
+                    break 
 
         # if not, then we need to backtrack
         if current == None:

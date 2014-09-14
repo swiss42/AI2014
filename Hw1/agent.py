@@ -19,7 +19,7 @@ class IdaStarSearchAgent(SearchAgent):
         """
         Reset the agent
         """
-        self.open = {}
+        self.frontierDepths = [0]
         self.visited = []
         self.backpointers = {}
         self.parents = {}
@@ -72,6 +72,8 @@ class IdaStarSearchAgent(SearchAgent):
         r = observations[0]
         c = observations[1]
         
+        self.frontierDepths.pop() # remove from open depth list
+        
         # have we visted this position?
         if (r, c) not in self.visited:
             
@@ -85,16 +87,22 @@ class IdaStarSearchAgent(SearchAgent):
 
                 # check if we should visit this child
                 if not observations[2 + m] and (r2, c2) not in self.visited:
-                    self.open[(r2, c2)] = self.depth + 1 # add to open list
+                    self.frontierDepths.append(self.depth + 1) # add to open depth list
                     children.append((r2, c2))
                     self.parents[(r2, c2)] = (r, c)
 
             # remember who the children of this position are
             self.children[(r, c)] = children
-            del self.open[(r, c)] # remove from open list
 
         # check if everything at depth limit has been searched
-        if self.open    
+        if len(self.frontierDepths) > 0: 
+            if min(self.frontierDepths) > self.depth_limit:   
+
+                # reset and increase depth limit
+                self.reset()
+                self.depth_limit += 1
+                get_environment().teleport(self, 0,0)
+                return 4
 
         # if we have been here check if there are other children we could visit
         children = self.children[(r, c)]

@@ -19,13 +19,14 @@ class IdaStarSearchAgent(SearchAgent):
         """
         Reset the agent
         """
-        self.frontierDepths = [0]
+        self.frontierDepths = {(0,0):0}
         self.visited = []
         self.backpointers = {}
         self.parents = {}
         self.children = {}
         self.open = {} #nodes not yet expanded
         self.depth = 0
+        self.isAtLimit = False
         #TODO: make open list to keep track of total depth reached
 
     def initialize(self, init_info):
@@ -33,7 +34,7 @@ class IdaStarSearchAgent(SearchAgent):
         Initializes the agent upon reset
         """
         self.action_info = init_info.actions
-        self.depth_limit = 0
+        self.depth_limit = 1
         #self.constraints = init_info.actions
         return True
 
@@ -41,6 +42,7 @@ class IdaStarSearchAgent(SearchAgent):
         """
         Called on the first move
         """
+        print "Strating first move!"
         return self.idaStar(observations)
     
     def act(self, time, observations, reward):
@@ -72,11 +74,21 @@ class IdaStarSearchAgent(SearchAgent):
         # get observation of where we are
         r = observations[0]
         c = observations[1]
-        
-        self.frontierDepths.pop() # remove from open depth list
-        
+
+        # prent debugging info
+        print "\n\nstart of call"
+        print "Current pos: (", r, c, ")"
+        print "Current depth: ", self.depth 
+        print "Depth limit: ", self.depth_limit
+
+        # show visible mark that we were at this position
+        get_environment().mark_maze_blue(r, c)
+
         # have we visted this position?
         if (r, c) not in self.visited:
+
+            # remove from open list
+            del self.frontierDepths[(r, c)]
             
             # if so, expand it to see who its children are
             children = []
@@ -87,19 +99,22 @@ class IdaStarSearchAgent(SearchAgent):
                 c2 = c + cd
 
                 # check if we should visit this child
-                if not observations[2 + m] and (r2, c2) not in self.visited:
-                    self.frontierDepths.append(self.depth + 1) # add to open depth list
-                    children.append((r2, c2))
-                    self.parents[(r2, c2)] = (r, c)
+                if not observations[2 + m]:
+                    if (r2, c2) not in self.visited:
+                        self.frontierDepths[(r2, c2)] = self.depth + 1 # add to open list
+                        children.append((r2, c2))
+                        self.parents[(r2, c2)] = (r, c)
 
             # remember who the children of this position are
             self.children[(r, c)] = children
 
         # check if everything at depth limit has been searched
+        print "Frontier depth: ", self.frontierDepths
         if len(self.frontierDepths) > 0: 
-            if min(self.frontierDepths) > self.depth_limit:   
-
+            if min(self.frontierDepths.itervalues()) > self.depth_limit: 
+                
                 # reset and increase depth limit
+                print "Limit reached. Increasing limit"
                 self.reset()
                 self.depth_limit += 1
                 get_environment().teleport(self, 0,0)
@@ -124,9 +139,11 @@ class IdaStarSearchAgent(SearchAgent):
             current = self.parents[(r, c)]
             self.depth -= 1
 
-        # mark as visited and set marker
+        # mark as visited
         self.visited.append((r, c))
-        get_environment().mark_maze_blue(r, c)
+
+        # return action
+        print "end of call\n\n"
 
         # return action
         return get_action_index((current[0] - r, current[1] - c))

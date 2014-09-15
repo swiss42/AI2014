@@ -38,8 +38,7 @@ class IdaStarSearchAgent(SearchAgent):
         Initializes the agent upon reset
         """
         self.action_info = init_info.actions
-        self.fcost_limit = 5 #self.fcost_calc(0,0)
-        #self.constraints = init_info.actions
+        self.fcost_limit = self.fcost_calc(0,0)
         return True
 
     def start(self, time, observations):
@@ -106,6 +105,8 @@ class IdaStarSearchAgent(SearchAgent):
                 # check if we should visit this child
                 if not observations[2 + m]:
                     if (r2, c2) not in self.visited:
+                        if (r + rd, c + cd) not in self.backpointers:
+                            self.backpointers[(r2, c2)] = (r, c)
                         self.frontier[(r2, c2)] = self.fcost_calc(r2,c2) # add to open list
                         children.append((r2, c2, self.fcost_calc(r2, c2)))
                         self.parents[(r2, c2)] = (r, c)
@@ -148,6 +149,8 @@ class IdaStarSearchAgent(SearchAgent):
         # return action
         print "end of call\n\n"
 
+        # save back pointer
+        rd, cd = current[0] - r, current[1] - c 
         if (r + rd, c + cd) not in self.backpointers:
             self.backpointers[(r + rd, c + cd)] = (r, c)
 

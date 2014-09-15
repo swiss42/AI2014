@@ -15,26 +15,30 @@ class IdaStarSearchAgent(SearchAgent):
         SearchAgent.__init__(self)
         self.reset()
 
+    def fcost_calc(self, r, c):
+        #fcost is defined as our distance from origin plus our heuristic
+        return self.get_distance(r,c) + manhattan_heuristic(r,c)
+
     def reset(self):
         """
         Reset the agent
         """
-        self.frontierDepths = {(0,0):0}
+        self.frontier = {(0,0):self.fcost_calc(0,0)}
         self.visited = []
         self.backpointers = {}
         self.parents = {}
         self.children = {}
         self.open = {} #nodes not yet expanded
-        self.depth = 0
+        self.f_cost = 0
         self.isAtLimit = False
-        #TODO: make open list to keep track of total depth reached
+        #TODO: make open list to keep track of total f_cost reached
 
     def initialize(self, init_info):
         """
         Initializes the agent upon reset
         """
         self.action_info = init_info.actions
-        self.depth_limit = 1
+        self.fcost_limit = 5 #self.fcost_calc(0,0)
         #self.constraints = init_info.actions
         return True
 
@@ -69,17 +73,18 @@ class IdaStarSearchAgent(SearchAgent):
         get_environment().mark_maze_white(r,c)
 
     def idaStar(self, observations):
-        """Depth first search will be implemented first"""
+        """depth first search will be implemented first"""
         
         # get observation of where we are
         r = observations[0]
         c = observations[1]
 
+        self.f_cost = self.fcost_calc(r,c)
         # prent debugging info
         print "\n\nstart of call"
         print "Current pos: (", r, c, ")"
-        print "Current depth: ", self.depth 
-        print "Depth limit: ", self.depth_limit
+        print "Current fcost: ", self.f_cost 
+        print "fcost_limit: ", self.fcost_limit
 
         # show visible mark that we were at this position
         get_environment().mark_maze_blue(r, c)
@@ -88,7 +93,7 @@ class IdaStarSearchAgent(SearchAgent):
         if (r, c) not in self.visited:
 
             # remove from open list
-            del self.frontierDepths[(r, c)]
+            del self.frontier[(r, c)]
             
             # if so, expand it to see who its children are
             children = []
@@ -101,49 +106,50 @@ class IdaStarSearchAgent(SearchAgent):
                 # check if we should visit this child
                 if not observations[2 + m]:
                     if (r2, c2) not in self.visited:
-                        self.frontierDepths[(r2, c2)] = self.depth + 1 # add to open list
-                        children.append((r2, c2))
+                        self.frontier[(r2, c2)] = self.fcost_calc(r2,c2) # add to open list
+                        children.append((r2, c2, self.fcost_calc(r2, c2)))
                         self.parents[(r2, c2)] = (r, c)
 
             # remember who the children of this position are
             self.children[(r, c)] = children
 
-        # check if everything at depth limit has been searched
-        print "Frontier depth: ", self.frontierDepths
-        if len(self.frontierDepths) > 0: 
-            if min(self.frontierDepths.itervalues()) > self.depth_limit: 
+        # check if everything at f_cost limit has been searched
+        print "Frontier f_cost: ", self.frontier
+        if len(self.frontier) > 0: 
+            min_fcost = min(self.frontier.itervalues())
+            if min_fcost > self.fcost_limit: 
                 
-                # reset and increase depth limit
+                # increased the min_fcost
                 print "Limit reached. Increasing limit"
                 self.reset()
-                self.depth_limit += 1
+                self.fcost_limit = min_fcost
                 get_environment().teleport(self, 0,0)
                 return 4
 
         # if we have been here check if there are other children we could visit
         children = self.children[(r, c)]
         current = None
-        if self.depth + 1 <= self.depth_limit:
-            for (rd, cd) in children:
-                if (rd, cd) not in self.visited:
+        for (rd, cd, fc) in children:
+            if (rd, cd) not in self.visited and fc <= self.fcost_limit:
 
-                    # making a move
-                    current = (rd, cd)
-                    self.depth += 1
-                    break 
+                # making a move
+                current = (rd, cd)
+                break 
 
         # if not, then we need to backtrack
         if current == None:
 
             # making a move
             current = self.parents[(r, c)]
-            self.depth -= 1
 
         # mark as visited
         self.visited.append((r, c))
 
         # return action
         print "end of call\n\n"
+
+        if (r + rd, c + cd) not in self.backpointers:
+            self.backpointers[(r + rd, c + cd)] = (r, c)
 
         # return action
         return get_action_index((current[0] - r, current[1] - c))

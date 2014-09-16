@@ -23,15 +23,11 @@ class IdaStarSearchAgent(SearchAgent):
         """
         Reset the agent
         """
-        self.frontier = {(0,0):self.fcost_calc(0,0)}
+        self.frontier = {(0,0):self.fcost_calc(0,0)} # saves fcost at fronteir
         self.visited = []
         self.backpointers = {}
         self.parents = {}
         self.children = {}
-        self.open = {} #nodes not yet expanded
-        self.f_cost = 0
-        self.isAtLimit = False
-        #TODO: make open list to keep track of total f_cost reached
 
     def initialize(self, init_info):
         """
@@ -39,6 +35,7 @@ class IdaStarSearchAgent(SearchAgent):
         """
         self.action_info = init_info.actions
         self.fcost_limit = self.fcost_calc(0,0)
+        self.iteration = 0 # keep track of search iteration
         return True
 
     def start(self, time, observations):
@@ -78,21 +75,27 @@ class IdaStarSearchAgent(SearchAgent):
         r = observations[0]
         c = observations[1]
 
-        self.f_cost = self.fcost_calc(r,c)
         # prent debugging info
-        print "\n\nstart of call"
+        print "\nstart of call"
         print "Current pos: (", r, c, ")"
-        print "Current fcost: ", self.f_cost 
-        print "fcost_limit: ", self.fcost_limit
+        print "Current distance: ", self.get_distance(r,c)
+        print "Current fcost: ", self.fcost_calc(r,c)
+        print "fcost limit: ", self.fcost_limit
+        print "Current search iteration: ", self.iteration
 
         # show visible mark that we were at this position
-        get_environment().mark_maze_blue(r, c)
+        # alternate color so we can see how he redoes work
+        n = self.iteration % 2
+        if n == 0:
+            get_environment().mark_maze_blue(r, c)
+        else:
+            get_environment().mark_maze_yellow(r, c)
 
         # have we visted this position?
         if (r, c) not in self.visited:
 
             # remove from open list
-            del self.frontier[(r, c)]
+            del self.frontier[(r,c)]
             
             # if so, expand it to see who its children are
             children = []
@@ -105,7 +108,7 @@ class IdaStarSearchAgent(SearchAgent):
                 # check if we should visit this child
                 if not observations[2 + m]:
                     if (r2, c2) not in self.visited:
-                        if (r + rd, c + cd) not in self.backpointers:
+                        if (r2, c2) not in self.backpointers: # save a backpointer of child 
                             self.backpointers[(r2, c2)] = (r, c)
                         self.frontier[(r2, c2)] = self.fcost_calc(r2,c2) # add to open list
                         children.append((r2, c2, self.fcost_calc(r2, c2)))
@@ -115,16 +118,17 @@ class IdaStarSearchAgent(SearchAgent):
             self.children[(r, c)] = children
 
         # check if everything at f_cost limit has been searched
-        print "Frontier f_cost: ", self.frontier
+        print "Frontier fcost: ", self.frontier
         if len(self.frontier) > 0: 
             min_fcost = min(self.frontier.itervalues())
             if min_fcost > self.fcost_limit: 
                 
-                # increased the min_fcost
+                # increase the fcost limit and start over
                 print "Limit reached. Increasing limit"
-                self.reset()
                 self.fcost_limit = min_fcost
                 get_environment().teleport(self, 0,0)
+                self.iteration += 1
+                self.reset()
                 return 4
 
         # if we have been here check if there are other children we could visit
@@ -146,15 +150,13 @@ class IdaStarSearchAgent(SearchAgent):
         # mark as visited
         self.visited.append((r, c))
 
-        # return action
-        print "end of call\n\n"
-
-        # save back pointer
+        # save back pointer if it has not been already
         rd, cd = current[0] - r, current[1] - c 
         if (r + rd, c + cd) not in self.backpointers:
             self.backpointers[(r + rd, c + cd)] = (r, c)
 
         # return action
+        print "end of call\n"
         return get_action_index((current[0] - r, current[1] - c))
 
 

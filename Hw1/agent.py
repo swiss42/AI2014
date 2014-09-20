@@ -42,7 +42,7 @@ class IdaStarSearchAgent(SearchAgent):
         """
         Called on the first move
         """
-        print "Strating first move!"
+        # print "Strating first move!"
         return self.idaStar(observations)
     
     def act(self, time, observations, reward):
@@ -55,7 +55,7 @@ class IdaStarSearchAgent(SearchAgent):
         """
         at the end of an episode, the environment tells us the final reward
         """
-        print  "Final reward: %f, cumulative: %f" % (reward[0], self.fitness[0])
+        # print  "Final reward: %f, cumulative: %f" % (reward[0], self.fitness[0])
         self.reset()
         return True
 
@@ -76,12 +76,12 @@ class IdaStarSearchAgent(SearchAgent):
         c = observations[1]
 
         # prent debugging info
-        print "\nstart of call"
-        print "Current pos: (", r, c, ")"
-        print "Current distance: ", self.get_distance(r,c)
-        print "Current fcost: ", self.fcost_calc(r,c)
-        print "fcost limit: ", self.fcost_limit
-        print "Current search iteration: ", self.iteration
+        # print "\nstart of call"
+        # print "Current pos: (", r, c, ")"
+        # print "Current distance: ", self.get_distance(r,c)
+        # print "Current fcost: ", self.fcost_calc(r,c)
+        # print "fcost limit: ", self.fcost_limit
+        # print "Current search iteration: ", self.iteration
 
         # show visible mark that we were at this position
         # alternate color so we can see how he redoes work
@@ -118,13 +118,13 @@ class IdaStarSearchAgent(SearchAgent):
             self.children[(r, c)] = children
 
         # check if everything at f_cost limit has been searched
-        print "Frontier fcost: ", self.frontier
+        # print "Frontier fcost: ", self.frontier
         if len(self.frontier) > 0: 
             min_fcost = min(self.frontier.itervalues())
             if min_fcost > self.fcost_limit: 
                 
                 # increase the fcost limit and start over
-                print "Limit reached. Increasing limit"
+                # print "Limit reached. Increasing limit"
                 self.fcost_limit = min_fcost
                 get_environment().teleport(self, 0,0)
                 self.iteration += 1
@@ -156,7 +156,7 @@ class IdaStarSearchAgent(SearchAgent):
             self.backpointers[(r + rd, c + cd)] = (r, c)
 
         # return action
-        print "end of call\n"
+        # print "end of call\n"
         return get_action_index((current[0] - r, current[1] - c))
 
 

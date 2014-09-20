@@ -3,13 +3,13 @@ import Tkinter as tk
 import threading
 import time
 
-NUM_TOWERS = 3
+NUM_DISKS = 3
 
 Pole1 = '1'
 Pole2 = '2'
 Pole3 = '3'
 
-BEGIN_QUEUE = [1,5]
+BEGIN = [1,5]
 MOVES = {}
 MOVES[Pole1, Pole2] = [5,1,4,3,4,1,5,2,]
 MOVES[Pole2, Pole1] = [3,5,1,4,2,4,1,5,]
@@ -17,11 +17,11 @@ MOVES[Pole1, Pole3] = [5,1,4,3,4,1,1,5,2,5,1,4,]
 MOVES[Pole3, Pole1] = [4,1,5,3,5,1,1,4,2,4,1,5,]
 MOVES[Pole3, Pole2] = [3,4,1,5,2,5,1,4,]
 MOVES[Pole2, Pole3] = [4,1,5,3,5,1,4,2,]
-END_QUEUE = [0,0,0,5,5,1]
+END = [0,0,0,5,5,1]
 
 class RecursiveSolver:
     def __init__(self, viewer):
-        self.num_towers = NUM_TOWERS
+        self.num_disks = NUM_DISKS
         self.viewer = viewer
 
     def move(self, frm, to):
@@ -29,7 +29,7 @@ class RecursiveSolver:
 
     def dohanoi(self, n, to, frm, using):
         if n == 0: return []
-        level = self.num_towers - n
+        level = self.num_disks - n
         prefix = ''.join(['\t' for i in range(level)])
         self.viewer.display_text(prefix + "At level {0} goal is to move {1} disks from pole {2} to pole {3}".format(level, n, frm, to))
         self.viewer.user_pause('')
@@ -79,23 +79,23 @@ class RecursiveSolver:
 
     def solve(self):
         time.sleep(0.1)
-        for a in self.queue_init():
+        for a in self.generate_action_list():
             continue
 
-    def queue_init(self):
-        self.viewer.add_item_viewer("Goal", ['Move %s disks from %s to %s' % (self.num_towers, Pole1, Pole2)], -1, [])
+    def generate_action_list(self):
+        self.viewer.add_item_viewer("Goal", ['Move %s disks from %s to %s' % (self.num_disks, Pole1, Pole3)], -1, [])
         self.viewer.display_text('Starting to Solve!')
         self.viewer.user_pause('')
         self.viewer.set_active_index(0, 0)
-        actions = self.dohanoi(self.num_towers, Pole2, Pole1, Pole3)
+        actions = self.dohanoi(self.num_disks, Pole3, Pole1, Pole2)
         self.viewer.add_completed_index(0, 0)
         self.viewer.display_text('Problem Solved! Please click Execute Plan or close the window to continue!')
         self.viewer.user_pause('')
-        return BEGIN_QUEUE + actions + END_QUEUE
+        return BEGIN + actions + END
 
 def main():
     root = tk.Tk()
-    root.title('Problem Decomposition')
+    root.title('Problem Reduction')
     viewer = TreeViewer(root)
     solver = RecursiveSolver(viewer)
     worker = threading.Thread(target=solver.solve)

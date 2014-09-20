@@ -10,7 +10,7 @@ def dfs_heuristic(r, c):
     return 0
 
 def manhattan_heuristic(r, c):
-    return abs(ROWS - r) + abs(COLS - c)
+    return abs(ROWS - 1 - r) + abs(COLS - 1 - c)
 
 def get_action_index(move):
     if move in MAZE_MOVES:
@@ -82,6 +82,7 @@ class CustomRLAgent(AgentBrain):
         another map of actions to Q-values. To look up a Q-value, call the predict method.
         """
         self.Q = {} # our Q-function table
+        self.DEFAULT_Q_VAL = 0
         print 
     
     def __str__(self):
@@ -103,7 +104,7 @@ class CustomRLAgent(AgentBrain):
         """
         o = tuple([x for x in observations])
         if o not in self.Q:
-            return 0
+            return self.DEFAULT_Q_VAL
         else:
             return self.Q[o][action]
     
@@ -115,7 +116,7 @@ class CustomRLAgent(AgentBrain):
         o = tuple([x for x in observations])
         actions = self.get_possible_actions(observations)
         if o not in self.Q:
-            self.Q[o] = [0 for a in actions]
+            self.Q[o] = [self.DEFAULT_Q_VAL for a in actions]
         self.Q[o][action] = new_value
         self.draw_q(o)
     
@@ -181,21 +182,22 @@ class CustomRLAgent(AgentBrain):
         """
         # get the reward from the previous action
         r = reward[0]
+        o = self.previous_observations
+        a = self.previous_action
         
         # get the updated epsilon, in case the slider was changed by the user
         self.epsilon = get_environment().epsilon
         
         # get the old Q value
-        Q_old = self.predict(self.previous_observations, self.previous_action)
+        Q_old = self.predict(o, a)
         
         # get the max expected value for our possible actions
         (max_action, max_value) = self.get_max_action(observations)
         
         # update the Q value
-        self.update( \
-            self.previous_observations, \
-            self.previous_action, \
-            Q_old + self.alpha * (r + self.gamma * max_value - Q_old))
+        info_items = (o[0], o[1], a, Q_old, r + self.gamma * max_value)
+        print "Updating Q((%s, %s), %s) from %.2f toward %.2f" % info_items
+        self.update(o, a, Q_old + self.alpha * (r + self.gamma * max_value - Q_old))
         
         # select the action to take
         action = self.get_epsilon_greedy(observations, max_action, max_value)
@@ -217,6 +219,8 @@ class CustomRLAgent(AgentBrain):
 
         # Update the Q value
         Q_old = self.predict(o, a)
+        info_items = (o[0], o[1], a, Q_old, r)
+        print "Updating Q((%s, %s), %s) from %.2f toward %.2f" % info_items
         q = self.update(o, a, Q_old + self.alpha * (r - Q_old))
         return True
 
@@ -227,6 +231,7 @@ class SearchAgent(AgentBrain):
         """ constructor """
         AgentBrain.__init__(self)
         self.backpointers = {}
+        self.starting_pos = None
 
     def highlight_path(self):
         """
@@ -234,12 +239,15 @@ class SearchAgent(AgentBrain):
         """
         # retrace the path
         node = (ROWS - 1, COLS - 1)
+        #print "starting with node (%s, %s)" % node
         while node in self.backpointers:
+            #print "Marked white."
             self.mark_path(node[0], node[1])
             next_node = self.backpointers[node]
-            del self.backpointers[node]
+            #del self.backpointers[node]
             node = next_node
-            if node == (0, 0):
+            #print "Moving to next node: (%s, %s)" % node
+            if node == self.starting_pos:
                 break
 
     def get_distance(self, row, col):
@@ -252,7 +260,7 @@ class SearchAgent(AgentBrain):
         while node in self.backpointers:
             node = self.backpointers[node]
             hops += 1
-            if node == (0, 0):
+            if node == self.starting_pos:
                 break
         return hops
 
@@ -273,35 +281,37 @@ class DFSSearchAgent(SearchAgent):
     def dfs_action(self, observations):
         r = observations[0]
         c = observations[1]
+        current_cell = (r, c)
         # if we have not been here before, build a list of other places we can go
-        if (r, c) not in self.visited:
+        if current_cell not in self.visited:
             tovisit = []
             for m, (dr, dc) in enumerate(MAZE_MOVES):
                 r2, c2 = r + dr, c + dc
                 if not observations[2 + m]: # can we go that way?
                     if (r2, c2) not in self.visited:
                         tovisit.append((r2, c2))
-                        self.parents[(r2,c2)] = (r,c)
+                        self.parents[(r2, c2)] = current_cell
             # remember the cells that are adjacent to this one
-            self.adjlist[(r, c)] = tovisit
+            self.adjlist[current_cell] = tovisit
         # if we have been here before, check if we have other places to visit
-        adjlist = self.adjlist[(r, c)]
+        adjlist = self.adjlist[current_cell]
         k = 0
         while k < len(adjlist) and adjlist[k] in self.visited:
             k += 1
         # if we don't have other neighbors to visit, back up
         if k == len(adjlist):
-            current = self.parents[(r, c)]
+            next_cell = self.parents[current_cell]
         else: # otherwise visit the next place
-            current = adjlist[k]
-        self.visited.add((r, c)) # add this location to visited list
-        get_environment().mark_maze_blue(r, c) # mark it as blue on the maze
+            next_cell = adjlist[k]
+        self.visited.add(current_cell) # add this location to visited list
+        if current_cell != self.starting_pos:
+            get_environment().mark_maze_blue(r, c) # mark it as blue on the maze
         v = self.constraints.get_instance() # make the action vector to return
-        dr, dc = current[0] - r, current[1] - c # the move we want to make
+        dr, dc = next_cell[0] - r, next_cell[1] - c # the move we want to make
         v[0] = get_action_index((dr, dc))
         # remember how to get back
-        if (r + dr, c + dc) not in self.backpointers:
-            self.backpointers[(r + dr, c + dc)] = (r, c)
+        if next_cell not in self.backpointers:
+            self.backpointers[next_cell] = current_cell
         return v
 
     def initialize(self, init_info):
@@ -310,12 +320,17 @@ class DFSSearchAgent(SearchAgent):
 
     def start(self, time, observations):
         # return action
+        r = observations[0]
+        c = observations[1]
+        self.starting_pos = (r, c)
+        get_environment().mark_maze_white(r, c)
         return self.dfs_action(observations)
 
     def reset(self):
         self.visited = set([])
         self.parents = {}
         self.backpointers = {}
+        self.starting_pos = None
 
     def act(self, time, observations, reward):
         # return action
@@ -350,6 +365,7 @@ class GenericSearchAlgorithm(SearchAgent):
         self.visited = set([]) # set of nodes we have visited
         self.enqueued = set([]) # set of things in the queue (superset of visited)
         self.backpointers = {} # a dictionary from nodes to their predecessors
+        self.starting_pos = None
         self.goal = None # we have no idea where to go at first
 
     def initialize(self, init_info):
@@ -372,10 +388,10 @@ class GenericSearchAlgorithm(SearchAgent):
             back2.append((r, c))
         return self.backpointers[(r1, c1)]
 
-    def enque(self, cell):
+    def enqueue(self, cell):
         self.queue.append(cell)
 
-    def deque(self):
+    def dequeue(self):
         return self.queue.pop(0)
 
     def get_action(self, r, c, observations):
@@ -387,7 +403,7 @@ class GenericSearchAlgorithm(SearchAgent):
          - The next step for the agent to take
         """
         if not self.goal: # first, figure out where we are trying to go
-            (r2, c2) = self.deque()
+            (r2, c2) = self.dequeue()
             self.mark_target(r2,c2)
             self.goal = (r2, c2)
         # then, check if we can get there
@@ -429,16 +445,19 @@ class GenericSearchAlgorithm(SearchAgent):
                     assert self.backpointers.get((row, col)) != (r2, c2)
                     self.backpointers[(r2, c2)] = row, col # remember where we (would) come from
                     self.enqueued.add((r2, c2))
-                    self.enque((r2, c2))
+                    self.enqueue((r2, c2))
 
     def start(self, time, observations):
         """
         Choose initial action after receiving the first sensor vector.
-        For the manual A* search, we enqueue the neighboring nodes and move to one of them.
+        For the manual A* search, we enqueueue the neighboring nodes and move to one of them.
         """
         # interpret the observations
-        row = int(observations[0])
-        col = int(observations[1])
+        row = observations[0]
+        col = observations[1]
+        self.starting_pos = (row, col)
+        get_environment().mark_maze_white(row, col)
+        self.starting_pos = (row, col)
         # first, visit the node we are in and queue up some places to go
         self.visit(row, col, observations)
         # now we have some candidate states and a way to return if we don't like it there, so let's try one!
@@ -447,7 +466,7 @@ class GenericSearchAlgorithm(SearchAgent):
     def act(self, time, observations, reward):
         """
         Choose an action after receiving the current sensor vector and the instantaneous reward from the previous time step.
-        For the manual A* search, we deque our next node and check if we can go there. If we can, we do, and mark the node visited.
+        For the manual A* search, we dequeue our next node and check if we can go there. If we can, we do, and mark the node visited.
         If we cannot, we have to follow the path to the goal.
         """
         # interpret the observations
@@ -473,7 +492,8 @@ class GenericSearchAlgorithm(SearchAgent):
         get_environment().mark_maze_yellow(r, c)
 
     def mark_visited(self, r, c):
-        get_environment().mark_maze_blue(r, c)
+        if (r, c) != self.starting_pos:
+            get_environment().mark_maze_blue(r, c)
 
     def mark_path(self, r, c):
         get_environment().mark_maze_white(r, c)
@@ -490,10 +510,10 @@ class BFSSearchAgent(GenericSearchAlgorithm):
         # this line is crucial, otherwise the class is not recognized as an AgentBrainPtr by C++
         GenericSearchAlgorithm.__init__(self)
 
-    def enque(self, cell):
+    def enqueue(self, cell):
         self.queue.append(cell)
 
-    def deque(self):
+    def dequeue(self):
         return self.queue.pop(0)
 
     def get_action(self, r, c, observations):
@@ -501,7 +521,7 @@ class BFSSearchAgent(GenericSearchAlgorithm):
         we override the get_action method so that we can spawn marker agents and teleport
         """
         if not self.goal: # first, figure out where we are trying to go
-            (r2,c2) = self.deque()
+            (r2,c2) = self.dequeue()
             get_environment().unmark_maze_agent(r2,c2)
             get_environment().mark_maze_yellow(r2,c2)
             self.goal = (r2, c2)
@@ -525,7 +545,8 @@ class BFSSearchAgent(GenericSearchAlgorithm):
 
     def mark_visited(self, r, c):
         get_environment().unmark_maze_agent(r, c)
-        get_environment().mark_maze_blue(r, c)
+        if (r, c) != self.starting_pos:
+            get_environment().mark_maze_blue(r, c)
 
 class AStarSearchAgent(GenericSearchAlgorithm):
     """
@@ -537,20 +558,17 @@ class AStarSearchAgent(GenericSearchAlgorithm):
         """
         # this line is crucial, otherwise the class is not recognized as an AgentBrainPtr by C++
         GenericSearchAlgorithm.__init__(self)
-
-    def reset(self):
-        GenericSearchAlgorithm.reset(self)
         # minimize the Manhattan distance
         self.heuristic = manhattan_heuristic
 
-    def enque(self, cell):
+    def enqueue(self, cell):
         (r, c) = cell
         d = self.get_distance(r, c)
         h = self.heuristic(r, c)
         print "Queuing cell (%s, %s), d = %s, h = %s" % (r, c, d, h)
         heappush(self.queue, Cell(d + h, r, c))
 
-    def deque(self):
+    def dequeue(self):
         cell = heappop(self.queue)
         h, r, c = cell.h, cell.r, cell.c
         return (r, c)
@@ -564,7 +582,7 @@ class FrontAStarSearchAgent(AStarSearchAgent):
         we override the get_action method so that we can teleport from place to place
         """
         if not self.goal: # first, figure out where we are trying to go
-            (r2, c2) = self.deque()
+            (r2, c2) = self.dequeue()
             get_environment().unmark_maze_agent(r2, c2)
             get_environment().mark_maze_yellow(r2, c2)
             self.goal = (r2, c2)
@@ -591,7 +609,7 @@ class CloningAStarSearchAgent(FrontAStarSearchAgent):
         we override the get_action method so that we can spawn marker agents and teleport
         """
         if not self.goal: # first, figure out where we are trying to go
-            (r2, c2) = self.deque()
+            (r2, c2) = self.dequeue()
             get_environment().unmark_maze_agent(r2, c2)
             get_environment().mark_maze_yellow(r2, c2)
             self.goal = (r2, c2)
@@ -615,7 +633,8 @@ class CloningAStarSearchAgent(FrontAStarSearchAgent):
 
     def mark_visited(self, r, c):
         get_environment().unmark_maze_agent(r, c)
-        get_environment().mark_maze_blue(r, c)
+        if (r, c) != self.starting_pos:
+            get_environment().mark_maze_blue(r, c)
 
 class FirstPersonAgent(AgentBrain):
     """

@@ -3,7 +3,7 @@ import re
 import sys
 import Tkinter as tk
 import time
-from TowerofHanoi.tree_viewer import TreeViewer
+from tree_viewer import TreeViewer
 
 viewer = None
 if __name__ == "__main__":
@@ -365,6 +365,7 @@ def create_world(filename):
     return w
 
 debug = True
+top_goals = None
 
 def linear_solver(world):
     state = []
@@ -375,6 +376,7 @@ def linear_solver(world):
             state.append(GroundedCondition(predicate, literals, True))
 
     goals = list(world.goals)
+    top_goals = goals
     
     InfiniteLoopGuard.reset()
 
@@ -641,6 +643,15 @@ def update_state(state, post):
     elif condition != None and post.truth is False:
         state.remove(condition)
 
+# Helper used in get_possible_grounds used to termin if a ground action literal (literal1) is
+# "smaller" than another (literal2)
+def smaller(literal1, literal2):
+
+    # if the number at the end of the literal is smaller than the number of the other literal
+    # or the second literal is a pole then return true
+    return (int(literal1[4:]) < int(literal2[4:])) or literal2[0] == "P"
+
+
 # Gets all grounded actions which have a post condition that includes the goal
 def get_possible_grounds(world, goal):
     results = []
@@ -648,8 +659,16 @@ def get_possible_grounds(world, goal):
         for ground in action.grounds:
             for p in ground.post:
                 if strong_match(p, goal):
-                    results.append(ground)
-                    break
+                    viewer.display_text(int(ground.literals[0][4:]));
+                    viewer.display_text(ground.literals[1]);
+                    viewer.display_text(ground.literals[2]);
+
+                    # don't consider actions that require you doing something impossible
+                    # such as, moving block 2 from block 1 or moving a pole.
+                    # this reduces the number of returned possible ground actions
+                    if (ground.literals[0][0] != "P" and smaller(ground.literals[0],ground.literals[1])):
+                        results.append(ground)
+                        break
     return results
 
 def print_plan(plan):

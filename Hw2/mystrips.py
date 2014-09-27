@@ -445,7 +445,7 @@ def linear_solver_helper(world, state, goals, current_plan, depth = 0):
             continue
 
         possible_actions = sorted(get_possible_grounds(world, goal), key=lambda c: initial_state_distance(state, c.pre))
-        #possible_actions = sorted(get_possible_grounds(world, goal), key=lambda c: get_disk_size(c.literals[0]))
+        #possible_actions = sorted(get_possible_grounds(world, goal), key=lambda c: get_disk_size(c.literals[0]), reverse=True)
 
         # otherwise, we need to find a subgoal that will get us to the goal
         # find all the grounded actions which will satisfy the goal

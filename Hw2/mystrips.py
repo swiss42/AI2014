@@ -384,9 +384,11 @@ def linear_solver(world):
     
     InfiniteLoopGuard.reset()
 
-    return linear_solver_helper(world, state, goals, [])
+    unsatisfied_preconditions = []
 
-def linear_solver_helper(world, state, goals, current_plan, depth = 0):
+    return linear_solver_helper(world, state, goals, [], unsatisfied_preconditions)
+
+def linear_solver_helper(world, state, goals, current_plan, unsatisfied_preconditions, depth = 0 ):
     padding = "".join(["++" for x in range(0,len(current_plan))]) + " "
     plan = []
 
@@ -403,7 +405,13 @@ def linear_solver_helper(world, state, goals, current_plan, depth = 0):
     if len(goals) == 0:
         return plan
 
+    if len(unsatisfied_preconditions) > 0 and len(list(set(goals) & set(unsatisfied_preconditions))) > 0:
+        return None
+
     if depth > 15:
+        return None
+
+    if len(unsatisfied_preconditions) > 0 and len(list(set(goals) & set(unsatisfied_preconditions))) > 0:
         return None
 
     if not InfiniteLoopGuard.can_continue():
@@ -496,7 +504,9 @@ def linear_solver_helper(world, state, goals, current_plan, depth = 0):
 
             current_plan.append(action)
 
-            solution = linear_solver_helper(world, temp_state, subgoals, current_plan, depth = depth + 1)
+            unsatisfied_preconditions.append(goal)
+
+            solution = linear_solver_helper(world, temp_state, subgoals, current_plan, unsatisfied_preconditions, depth = depth + 1)
 
             # we were unable to find
             if solution is None:

@@ -367,6 +367,10 @@ def create_world(filename):
 debug = True
 top_goals = None
 
+def get_disk_size(literal):
+    viewer.display_text(literal)
+    return int(literal[4:])
+
 def linear_solver(world):
     state = []
 
@@ -441,6 +445,7 @@ def linear_solver_helper(world, state, goals, current_plan, depth = 0):
             continue
 
         possible_actions = sorted(get_possible_grounds(world, goal), key=lambda c: initial_state_distance(state, c.pre))
+        #possible_actions = sorted(get_possible_grounds(world, goal), key=lambda c: get_disk_size(c.literals[0]))
 
         # otherwise, we need to find a subgoal that will get us to the goal
         # find all the grounded actions which will satisfy the goal
@@ -649,7 +654,7 @@ def smaller(literal1, literal2):
 
     # if the number at the end of the literal is smaller than the number of the other literal
     # or the second literal is a pole then return true
-    return (int(literal1[4:]) < int(literal2[4:])) or literal2[0] == "P"
+    return literal2[0] == "P" or (int(literal1[4:]) < int(literal2[4:]))
 
 
 # Gets all grounded actions which have a post condition that includes the goal
@@ -659,16 +664,16 @@ def get_possible_grounds(world, goal):
         for ground in action.grounds:
             for p in ground.post:
                 if strong_match(p, goal):
-                    viewer.display_text(int(ground.literals[0][4:]));
-                    viewer.display_text(ground.literals[1]);
-                    viewer.display_text(ground.literals[2]);
+                    #viewer.display_text(int(ground.literals[0][4:]));
+                    #viewer.display_text(ground.literals[1]);
+                    #viewer.display_text(ground.literals[2]);
 
                     # don't consider actions that require you doing something impossible
                     # such as, moving block 2 from block 1 or moving a pole.
                     # this reduces the number of returned possible ground actions
-                    if (ground.literals[0][0] != "P" and smaller(ground.literals[0],ground.literals[1])):
-                        results.append(ground)
-                        break
+                    # if (ground.literals[0][0] != "P" and smaller(ground.literals[0],ground.literals[1])):
+                    results.append(ground)
+                    break
     return results
 
 def print_plan(plan):

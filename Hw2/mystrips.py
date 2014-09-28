@@ -367,10 +367,6 @@ def create_world(filename):
 debug = True
 top_goals = None
 
-def get_disk_size(literal):
-    viewer.display_text(literal)
-    return int(literal[4:])
-
 def linear_solver(world):
     state = []
 
@@ -384,11 +380,9 @@ def linear_solver(world):
     
     InfiniteLoopGuard.reset()
 
-    unsatisfied_preconditions = []
+    return linear_solver_helper(world, state, goals, [])
 
-    return linear_solver_helper(world, state, goals, [], unsatisfied_preconditions)
-
-def linear_solver_helper(world, state, goals, current_plan, unsatisfied_preconditions, depth = 0 ):
+def linear_solver_helper(world, state, goals, current_plan, depth = 0 ):
     padding = "".join(["++" for x in range(0,len(current_plan))]) + " "
     plan = []
 
@@ -413,11 +407,6 @@ def linear_solver_helper(world, state, goals, current_plan, unsatisfied_precondi
         viewer.display_text("Aborting search to prevent infinite loop.")
         viewer.user_pause("")
         return None
-
-    '''viewer.display_text("TEST:")
-    viewer.display_text(len(list(set(goals) & set(unsatisfied_preconditions))))
-    if len(unsatisfied_preconditions) > 0 and len(list(set(goals) & set(unsatisfied_preconditions))) > 0:
-        return None'''
 
     #display the end goal
     if debug:
@@ -450,9 +439,11 @@ def linear_solver_helper(world, state, goals, current_plan, unsatisfied_precondi
                 viewer.display_text("")
             i += 1
             continue
-        possible_actionsSizeSort = sorted(get_possible_grounds(world, goal), key=lambda c: get_disk_size(c.literals[0]), reverse=True)
-        possible_actions = sorted(possible_actionsSizeSort, key=lambda c: initial_state_distance(state, c.pre))
-        #possible_actions = sorted(get_possible_grounds(world, goal), key=lambda c: get_disk_size(c.literals[0]), reverse=True)
+
+        # sort list of actions by the disk size of the first literal then by the initial state distance
+        # this is all that is needed to fix infinite loop issue
+        possible_actions_size_sort = sorted(get_possible_grounds(world, goal), key=lambda c: get_disk_size(c.literals[0]), reverse=True)
+        possible_actions = sorted(possible_actions_size_sort, key=lambda c: initial_state_distance(state, c.pre))
 
         # otherwise, we need to find a subgoal that will get us to the goal
         # find all the grounded actions which will satisfy the goal
@@ -503,10 +494,7 @@ def linear_solver_helper(world, state, goals, current_plan, unsatisfied_precondi
 
             current_plan.append(action)
 
-            # keep track of unsatisfied goals
-            unsatisfied_preconditions.append(goal)
-
-            solution = linear_solver_helper(world, temp_state, subgoals, current_plan, unsatisfied_preconditions, depth = depth + 1)
+            solution = linear_solver_helper(world, temp_state, subgoals, current_plan, depth = depth + 1)
 
             # we were unable to find
             if solution is None:
@@ -602,15 +590,18 @@ def linear_solver_helper(world, state, goals, current_plan, unsatisfied_precondi
             viewer.remove_last_item_viewer(this_level_subgoal_view)
     return plan
 
+# simple helper to get the disk size
+# this function assumes that the literal you pass is a disk
+# we use this in the action sorting
+def get_disk_size(literal):
+    return int(literal[4:])
+
 def contains_contradiction(state, action):
     for post in action.post:
         m = weak_find(state, post)
         if m != None and m.truth != post.truth:
             return True
     return False
-
-#def get_action_order(state, preconds):
-
 
 def initial_state_distance(state, preconds):
     count = 0
@@ -660,15 +651,6 @@ def update_state(state, post):
     elif condition != None and post.truth is False:
         state.remove(condition)
 
-# Helper used in get_possible_grounds used to termin if a ground action literal (literal1) is
-# "smaller" than another (literal2)
-def smaller(literal1, literal2):
-
-    # if the number at the end of the literal is smaller than the number of the other literal
-    # or the second literal is a pole then return true
-    return literal2[0] == "P" or (int(literal1[4:]) < int(literal2[4:]))
-
-
 # Gets all grounded actions which have a post condition that includes the goal
 def get_possible_grounds(world, goal):
     results = []
@@ -676,17 +658,22 @@ def get_possible_grounds(world, goal):
         for ground in action.grounds:
             for p in ground.post:
                 if strong_match(p, goal):
-                    # viewer.display_text(int(ground.literals[0][4:]));
-                    # viewer.display_text(ground.literals[1]);
-                    # viewer.display_text(ground.literals[2]);
 
                     # don't consider actions that require you doing something impossible
                     # such as, moving block 2 from block 1 or moving a pole.
                     # this reduces the number of returned possible ground actions
-                    # if (ground.literals[0][0] != "P" and smaller(ground.literals[0],ground.literals[1])):
-                    results.append(ground)
+                    if (ground.literals[0][0] != "P" and smaller(ground.literals[0],ground.literals[1])):
+                        results.append(ground)
                     break
     return results
+
+# Helper used in get_possible_grounds to determin if a ground action literal (literal1) is
+# "smaller" than another (literal2)
+def smaller(literal1, literal2):
+
+    # if the number at the end of the literal is smaller than the number of the other literal
+    # or the second literal is a pole then return true
+    return literal2[0] == "P" or (int(literal1[4:]) < int(literal2[4:]))
 
 def print_plan(plan):
     viewer.display_text('Plan:')

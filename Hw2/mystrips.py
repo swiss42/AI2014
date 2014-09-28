@@ -460,7 +460,7 @@ def linear_solver_helper(world, state, goals, current_plan, unsatisfied_precondi
             this_subgoal_action_list = viewer.number_item_viewers
             viewer.add_item_viewer("Actions", [x.simple_str() for x in possible_actions])
             viewer.display_text(padding + "List of possible actions that satisfy {0}:".format(goal))
-            viewer.display_text("\n".join([padding + x.simple_str() for x in possible_actions]))
+            viewer.display_text("\n".join([padding + x.simple_str() + str(initial_state_distance(state, x.pre)) for x in possible_actions]))
             #viewer.user_pause("")
             action_index = 0
 
@@ -676,9 +676,9 @@ def get_possible_grounds(world, goal):
         for ground in action.grounds:
             for p in ground.post:
                 if strong_match(p, goal):
-                    #viewer.display_text(int(ground.literals[0][4:]));
-                    #viewer.display_text(ground.literals[1]);
-                    #viewer.display_text(ground.literals[2]);
+                    # viewer.display_text(int(ground.literals[0][4:]));
+                    # viewer.display_text(ground.literals[1]);
+                    # viewer.display_text(ground.literals[2]);
 
                     # don't consider actions that require you doing something impossible
                     # such as, moving block 2 from block 1 or moving a pole.

@@ -405,13 +405,7 @@ def linear_solver_helper(world, state, goals, current_plan, unsatisfied_precondi
     if len(goals) == 0:
         return plan
 
-    if len(unsatisfied_preconditions) > 0 and len(list(set(goals) & set(unsatisfied_preconditions))) > 0:
-        return None
-
     if depth > 15:
-        return None
-
-    if len(unsatisfied_preconditions) > 0 and len(list(set(goals) & set(unsatisfied_preconditions))) > 0:
         return None
 
     if not InfiniteLoopGuard.can_continue():
@@ -419,6 +413,11 @@ def linear_solver_helper(world, state, goals, current_plan, unsatisfied_precondi
         viewer.display_text("Aborting search to prevent infinite loop.")
         viewer.user_pause("")
         return None
+
+    '''viewer.display_text("TEST:")
+    viewer.display_text(len(list(set(goals) & set(unsatisfied_preconditions))))
+    if len(unsatisfied_preconditions) > 0 and len(list(set(goals) & set(unsatisfied_preconditions))) > 0:
+        return None'''
 
     #display the end goal
     if debug:
@@ -504,6 +503,7 @@ def linear_solver_helper(world, state, goals, current_plan, unsatisfied_precondi
 
             current_plan.append(action)
 
+            # keep track of unsatisfied goals
             unsatisfied_preconditions.append(goal)
 
             solution = linear_solver_helper(world, temp_state, subgoals, current_plan, unsatisfied_preconditions, depth = depth + 1)
@@ -608,6 +608,8 @@ def contains_contradiction(state, action):
         if m != None and m.truth != post.truth:
             return True
     return False
+
+#def get_action_order(state, preconds):
 
 
 def initial_state_distance(state, preconds):

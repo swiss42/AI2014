@@ -47,6 +47,8 @@ class MyTabularRLAgent(AgentBrain):
         """
         Look up the Q-value for the given state (observations), action pair.
         """
+
+        print "CALLED FROM PARENT!"
         o = tuple([x for x in observations])
         if o not in self.Q:
             return 0
@@ -178,8 +180,60 @@ class MyTilingRLAgent(MyTabularRLAgent):
         @param alpha learning rate (between 0 and 1)
         @param epsilon parameter for the epsilon-greedy policy (between 0 and 1)
         """
+        self.tile_values = [0 for x in range(64)] # initialize list of 64 tiles to all zeros
         MyTabularRLAgent.__init__(self, gamma, alpha, epsilon) # initialize the superclass
 
+    def predict(self, observations, action):
+        """
+        Look up the Q-value for the given state (observations), action pair.
+        For the tiling approximator this means figuring out which tile the dest state is in
+        and returning that tiles value from the tile_values list.
+        """
+
+        (tile_row, tile_col) = map_state_action_to_tile(observations, action)
+
+        print "CALLED FROM CHILED!"
+
+        # lookup tile value in tile_values and return
+        return self.tile_values[tile_row * 8 + tile_col]
+
+    def update(self, observations, action, new_value):
+        """
+        Update the Q-function table with the new value for the (state, action) pair
+        and update the blocks drawing.
+        """
+
+        (tile_row, tile_col) = map_state_action_to_tile(observations, action)
+
+        self.tile_values[tile_row * 8 + tile_col] = new_value
+
+        print "Title Values: ", self.tile_values
+
+        o = tuple([x for x in observations])
+        self.draw_q(o)
+
+    def map_state_action_to_tile(self, state, action):
+
+        # get current state 
+        row = state[0]
+        col = state[1]
+
+        # map current state to destination state given action
+        if action == 0: # move up
+            row += 1
+        elif action == 1: # move down
+            row -= 1
+        elif action == 2: # move right
+            col += 1
+        elif action == 3: # move left
+            col -= 1
+
+        # figure out which tile the destination state is in
+        # MAKE SURE THIS IS RIGHT!
+        tile_row = (row + 1) / 8
+        tile_col = (col + 1) / 8
+
+        return (tile_row, tile_col)
 
 class MyNearestNeighborsRLAgent(MyTabularRLAgent):
     """

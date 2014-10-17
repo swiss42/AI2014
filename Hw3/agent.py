@@ -203,8 +203,7 @@ class MyTilingRLAgent(MyTabularRLAgent):
 
     def update(self, observations, action, new_value):
         """
-        Update the Q-function table with the new value for the (state, action) pair
-        and update the blocks drawing.
+        Changes the tile values
         """
 
         (tile_row, tile_col) = self.map_state_action_to_tile(observations, action)
@@ -216,46 +215,57 @@ class MyTilingRLAgent(MyTabularRLAgent):
 
     def map_state_action_to_tile(self, state, action):
 
-        # get current state 
-        row = ((state[0] - 12.5) / (2.5))
-        col = ((state[1] - 12.5) / (2.5))
+        # get current micro-state 
+        (microRow, microCol) = micro_state_converter(state)
 
-        print "observations:"
+
+        print "Micro-stateobservations:"
         for x in state:
             print "Ob: ", x
-        print "Row: ", row, " Col: ", col
+        print "Row: ", microRow, " Col: ", col
 
         self.print_tile_values()
 
         # map current state to destination state given action
         if action == 0: # move up
-            if row < 7:
-                row += 1
+            if microRow < 64:
+                microRow += 1
         elif action == 1: # move down
-            if row > 0:
-                row -= 1
+            if microRow > 0:
+                microRow -= 1
         elif action == 2: # move right
-            if col < 7:
-                col += 1
+            if microCol < 64:
+                microCol += 1
         elif action == 3: # move left
-            if col > 0:
-                col -= 1
+            if microCol > 0:
+                microCol -= 1
 
         # figure out which tile the destination state is in
         # MAKE SURE THIS IS RIGHT!
-        tile_row = int((row + 1) / 8)
-        tile_col = int((col + 1) / 8)
+        tile_row = int((microRow + 1) / 8)
+        tile_col = int((microCol + 1) / 8)
 
         print "tile row: ", tile_row, " tile_col: ", tile_col
 
+        #macro-state row and col
         return (tile_row, tile_col)
 
     def print_tile_values(self):
         for r in range(8):
             print self.tile_values[r]
 
+    def micro_state_converter(self, state):
+        microRow = ((state[0] - 12.5) / (2.5))
+        microCol = ((state[1] - 12.5) / (2.5))
 
-class MyNearestNeighborsRLAgent(MyTabularRLAgent):
+        return (microRow, microCol)
+
+    def tile_center_point(self, tile):
+        return ((tile[0] * 8) + 3.5), (tile[1] * 8) + 3.5)
+
+
+
+class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     """
     Nearest Neighbors RL Agent
     """
@@ -268,5 +278,36 @@ class MyNearestNeighborsRLAgent(MyTabularRLAgent):
         @param epsilon parameter for the epsilon-greedy policy (between 0 and 1)
         """
         MyTabularRLAgent.__init__(self, gamma, alpha, epsilon) # initialize the superclass
+
+
+    def update(self, observations, action, new_value):
+        pass
+
+    def predict(self, observations, action):
+        pass
+
+    def calculate_distance(self, tile, cur_micro_state):
+        dist = () ** 0.5
+
+    def calculate_weight(self, tile, distances):
+        #distances is a set of 3 tuples containing shortest distance tile
+        pass
+
+    def calculate_micro_state_value(self, micro_state, action):
+        pass
+
+    def get_closest_tiles(self, cur_micro_state):
+    #  if ((3,4), (3,5)) in get_environment().maze.walls:
+    # print "There is a wall between (3,4) and (3,5)!"
+        pass
+
+    def update_tile_value(self, tile, value):
+        pass
+
+
+
+
+
+
 
 

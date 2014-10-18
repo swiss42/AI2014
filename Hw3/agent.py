@@ -215,7 +215,7 @@ class MyTilingRLAgent(MyTabularRLAgent):
 
     def map_state_action_to_tile(self, state, action):
 
-        # get current micro-state 
+        # get current micro-state(values between 0 and 63)
         (microRow, microCol) = micro_state_converter(state)
 
 
@@ -242,8 +242,7 @@ class MyTilingRLAgent(MyTabularRLAgent):
 
         # figure out which tile the destination state is in
         # MAKE SURE THIS IS RIGHT!
-        tile_row = int((microRow + 1) / 8)
-        tile_col = int((microCol + 1) / 8)
+        (tile_row, tile_col) = micro_to_tile_coordinates((microRow, microCol))
 
         print "tile row: ", tile_row, " tile_col: ", tile_col
 
@@ -254,15 +253,32 @@ class MyTilingRLAgent(MyTabularRLAgent):
         for r in range(8):
             print self.tile_values[r]
 
+    #returns the current micro-state(0 to 64 values)
     def micro_state_converter(self, state):
         microRow = ((state[0] - 12.5) / (2.5))
         microCol = ((state[1] - 12.5) / (2.5))
 
         return (microRow, microCol)
 
+    #returns center point of tile in terms of micro-states(values 0 to 63)
     def tile_center_point(self, tile):
         return ((tile[0] * 8) + 3.5), (tile[1] * 8) + 3.5)
+    
+    #calculate tile based on micro-state
+    def micro_to_tile_coordinates(self, micro_state):
+        (microRow, microCol) = micro_state
 
+        tile_row = int((microRow + 1) / 8)
+        tile_col = int((microCol + 1) / 8)
+
+        return (tile_row, tile_col)
+
+    #Simply check if the coordinates are out of bounds
+    def in_grid(self, tile):
+        (x, y) = tile
+        if x < 0 || x > 7 || y < 0 || y > 7:
+            return False
+        return True
 
 
 class MyNearestNeighborsRLAgent(MyTilingRLAgent):
@@ -287,7 +303,13 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         pass
 
     def calculate_distance(self, tile, cur_micro_state):
-        dist = () ** 0.5
+
+        #center point of tile in terms of micro-states
+        (tile_x, tile_y) = tile_center_point(tile)
+        #micro-state position
+        (micro_x, micro_y) = cur_micro_state
+
+        return (((tile_x - micro_x) * 2) + ((tile_y - micro_y) * 2)) ** 0.5
 
     def calculate_weight(self, tile, distances):
         #distances is a set of 3 tuples containing shortest distance tile
@@ -296,10 +318,43 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     def calculate_micro_state_value(self, micro_state, action):
         pass
 
+    #this method should tell us which 3 tiles are the closest to us
     def get_closest_tiles(self, cur_micro_state):
-    #  if ((3,4), (3,5)) in get_environment().maze.walls:
+    # if ((3,4), (3,5)) in get_environment().maze.walls:
     # print "There is a wall between (3,4) and (3,5)!"
-        pass
+        (cur_x, cur_y) = micro_to_tile_coordinates(cur_micro_state)
+
+        clostest_tiles = []
+        temp_tiles = []
+        t
+
+
+    def inbounds_and_not_blocked(self, tile):
+        (x, y) = tile
+        #top left
+        if in_grid(x+1, y+1):
+            if(((x+1, y+1), (x, y+1)) in get_environment().maze.walls and
+             ((x, y+1), (x, y)) in get_environment().maze.walls) or 
+            ((x+1, y+1), (x+1, y)) in get_environment().maze.walls and
+             ((x + 1, y), (x, y)) in get_environment().maze.walls):
+            return True
+        else:
+            return False
+
+        if in_grid(x - 1, y + 1):
+            # (x + 1, y + 1) to (x, y + 1) && (x, y + 1) to (x, y)
+            # (x + 1, y + 1) to (x + 1, y) && (x + 1, y) to (x, y)
+        if in_grid(x - 1, y - 1):
+            # (x + 1, y + 1) to (x, y + 1) && (x, y + 1) to (x, y)
+            # (x + 1, y + 1) to (x + 1, y) && (x + 1, y) to (x, y)
+        if in_grid(x + 1, y - 1):
+            # (x + 1, y + 1) to (x, y + 1) && (x, y + 1) to (x, y)
+            # (x + 1, y + 1) to (x + 1, y) && (x + 1, y) to (x, y)
+
+
+
+
+
 
     def update_tile_value(self, tile, value):
         pass

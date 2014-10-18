@@ -324,22 +324,39 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     # print "There is a wall between (3,4) and (3,5)!"
         (cur_x, cur_y) = micro_to_tile_coordinates(cur_micro_state)
 
-        clostest_tiles = []
-        temp_tiles = []
-        t
+        clostest_tiles = [(cur_x, cur_y)]
+        candidate_tiles = inbounds_and_not_blocked((cur_x, cur_y))
+        temp = []
+
+        for (x,y) in candidate_tiles:
+            dist = calculate_distance((x, y), cur_micro_state)
+            temp.append((x,y,dist))
+
+        if len(temp == 1):
+            (x,y,d) = temp.index(0)
+            return clostest_tiles.append((x, y))
+
+        #sort list by distances and pop the two items with shortest distance, add them to clostest tiles.
+        temp.sort(key = lambda tup: tup[2])
+        clostest_tiles.append(temp.pop())
+        clostest_tiles.append(temp.pop())
+        return clostest_tiles
 
 
+        
+
+
+    #return a list of tiles that we can actually calculate a shortest path to
     def inbounds_and_not_blocked(self, tile):
         (x, y) = tile
+        candidates = []
         #top left
         if in_grid(x+1, y+1):
-            if(((x+1, y+1), (x, y+1)) in get_environment().maze.walls and
-             ((x, y+1), (x, y)) in get_environment().maze.walls) or 
-            ((x+1, y+1), (x+1, y)) in get_environment().maze.walls and
-             ((x + 1, y), (x, y)) in get_environment().maze.walls):
-            return True
-        else:
-            return False
+            if(not(((x+1, y+1), (x, y+1)) in get_environment().maze.walls) and
+             not((x, y+1), (x, y)) in get_environment().maze.walls)) or 
+             not(((x+1, y+1), (x+1, y)) in get_environment().maze.walls) and
+             not(((x + 1, y), (x, y)) in get_environment().maze.walls)):
+            candidates.append((x+1, y+1))
 
         if in_grid(x - 1, y + 1):
             # (x + 1, y + 1) to (x, y + 1) && (x, y + 1) to (x, y)
@@ -350,6 +367,7 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         if in_grid(x + 1, y - 1):
             # (x + 1, y + 1) to (x, y + 1) && (x, y + 1) to (x, y)
             # (x + 1, y + 1) to (x + 1, y) && (x + 1, y) to (x, y)
+        return candidates
 
 
 

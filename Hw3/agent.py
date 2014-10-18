@@ -360,7 +360,7 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
              not((x, y+1), (x, y)) in get_environment().maze.walls)) or 
              not(((x+1, y+1), (x+1, y)) in get_environment().maze.walls) and
              not(((x + 1, y), (x, y)) in get_environment().maze.walls)):
-            candidates.append((x+1, y+1))
+                candidates.append((x+1, y+1))
 
         if in_grid(x - 1, y + 1):
             # (x + 1, y + 1) to (x, y + 1) && (x, y + 1) to (x, y)

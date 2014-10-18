@@ -316,16 +316,14 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         return (((tile_x - micro_x) * 2) + ((tile_y - micro_y) * 2)) ** 0.5
 
     def calculate_weight(self, tile, distances):
-        #distances is a set of 3 tuples containing shortest distance tile
+        #distances is a set of 2 or 3 tuples containing shortest distance tile
         pass
 
     def calculate_micro_state_value(self, micro_state, action):
         pass
 
-    #this method should tell us which 3 tiles are the closest to us
+    #this method should tell us which 2 or 3 tiles are the closest to us
     def get_closest_tiles(self, cur_micro_state):
-    # if ((3,4), (3,5)) in get_environment().maze.walls:
-    # print "There is a wall between (3,4) and (3,5)!"
         (cur_x, cur_y) = micro_to_tile_coordinates(cur_micro_state)
 
         clostest_tiles = [(cur_x, cur_y)]
@@ -346,10 +344,6 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         clostest_tiles.append(temp.pop())
         return clostest_tiles
 
-
-        
-
-
     #return a list of tiles that we can actually calculate a shortest path to
     def inbounds_and_not_blocked(self, tile):
         (x, y) = tile
@@ -361,22 +355,42 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
              not(((x+1, y+1), (x+1, y)) in get_environment().maze.walls) and
              not(((x + 1, y), (x, y)) in get_environment().maze.walls)):
                 candidates.append((x+1, y+1))
-
         if in_grid(x - 1, y + 1):
-            # (x + 1, y + 1) to (x, y + 1) && (x, y + 1) to (x, y)
-            # (x + 1, y + 1) to (x + 1, y) && (x + 1, y) to (x, y)
+           if(not(((x-1, y+1), (x, y+1)) in get_environment().maze.walls) and
+             not((x, y+1), (x, y)) in get_environment().maze.walls)) or 
+             not(((x-1, y+1), (x-1, y)) in get_environment().maze.walls) and
+             not(((x - 1, y), (x, y)) in get_environment().maze.walls)):
+                candidates.append((x-1, y+1))
         if in_grid(x - 1, y - 1):
-            # (x + 1, y + 1) to (x, y + 1) && (x, y + 1) to (x, y)
-            # (x + 1, y + 1) to (x + 1, y) && (x + 1, y) to (x, y)
+            if(not(((x-1, y-1), (x, y-1)) in get_environment().maze.walls) and
+             not((x, y-1), (x, y)) in get_environment().maze.walls)) or 
+             not(((x-1, y-1), (x-1, y)) in get_environment().maze.walls) and
+             not(((x-1, y), (x, y)) in get_environment().maze.walls)):
+                candidates.append((x-1, y-1))
         if in_grid(x + 1, y - 1):
-            # (x + 1, y + 1) to (x, y + 1) && (x, y + 1) to (x, y)
-            # (x + 1, y + 1) to (x + 1, y) && (x + 1, y) to (x, y)
+            if(not(((x+1, y-1), (x, y-1)) in get_environment().maze.walls) and
+             not((x, y-1), (x, y)) in get_environment().maze.walls)) or 
+             not(((x+1, y-1), (x+1, y)) in get_environment().maze.walls) and
+             not(((x + 1, y), (x, y)) in get_environment().maze.walls)):
+                candidates.append((x+1, y-1))
+
+        if in_grid(x, y+1):
+            if not((x, y+1), (x, y)) in get_environment().maze.walls):
+                candidates.append(x, y+1)
+
+        if in_grid(x, y-1):
+            if not((x, y-1), (x, y)) in get_environment().maze.walls):
+                candidates.append(x, y-1)
+
+        if in_grid(x+1, y):
+            if not((x+1, y), (x, y)) in get_environment().maze.walls):
+                candidates.append(x+1, y)
+
+        if in_grid(x-1, y):
+            if not((x-1, y), (x, y)) in get_environment().maze.walls):
+                candidates.append(x-1, y)
+
         return candidates
-
-
-
-
-
 
     def update_tile_value(self, tile, value):
         pass

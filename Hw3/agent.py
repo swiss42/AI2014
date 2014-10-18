@@ -195,7 +195,7 @@ class MyTilingRLAgent(MyTabularRLAgent):
         For the tiling approximator this means figuring out which tile the dest state is in
         and returning that tiles value from the tile_values list.
         """
-
+        # get tile row and column that action will place you in from given state
         (tile_row, tile_col) = self.map_state_action_to_tile(observations, action)
 
         # lookup tile value in tile_values and return
@@ -206,43 +206,45 @@ class MyTilingRLAgent(MyTabularRLAgent):
         Changes the tile values
         """
 
+        # get tile row and column that action will place you in from given state
         (tile_row, tile_col) = self.map_state_action_to_tile(observations, action)
 
+        # update with new value
         self.tile_values[tile_row][tile_col] = new_value
 
+        # draw q-value markers
         # o = tuple([x for x in observations])
         # self.draw_q(o)
 
     def map_state_action_to_tile(self, state, action):
 
         # get current micro-state(values between 0 and 63)
-        (microRow, microCol) = micro_state_converter(state)
+        (micro_row, micro_col) = micro_state_converter(state)
 
-
+        # print debug info
         print "Micro-stateobservations:"
         for x in state:
             print "Ob: ", x
-        print "Row: ", microRow, " Col: ", col
-
+        print "Row: ", micro_row, " Col: ", micro_col
         self.print_tile_values()
 
         # map current state to destination state given action
         if action == 0: # move up
-            if microRow < 64:
-                microRow += 1
+            if micro_row < 63:
+                micro_row += 1
         elif action == 1: # move down
-            if microRow > 0:
-                microRow -= 1
+            if micro_row > 0:
+                micro_row -= 1
         elif action == 2: # move right
-            if microCol < 64:
-                microCol += 1
+            if micro_col < 63:
+                micro_col += 1
         elif action == 3: # move left
-            if microCol > 0:
-                microCol -= 1
+            if micro_col > 0:
+                micro_col -= 1
 
         # figure out which tile the destination state is in
         # MAKE SURE THIS IS RIGHT!
-        (tile_row, tile_col) = micro_to_tile_coordinates((microRow, microCol))
+        (tile_row, tile_col) = micro_to_tile_coordinates((micro_row, micro_col))
 
         print "tile row: ", tile_row, " tile_col: ", tile_col
 
@@ -253,30 +255,32 @@ class MyTilingRLAgent(MyTabularRLAgent):
         for r in range(8):
             print self.tile_values[r]
 
-    #returns the current micro-state(0 to 64 values)
+    #converts the (x, y) coordinates to (micro_r, micro_c) coordinates
     def micro_state_converter(self, state):
-        microRow = ((state[0] - 12.5) / (2.5))
-        microCol = ((state[1] - 12.5) / (2.5))
-
-        return (microRow, microCol)
+        micro_x = state[0]
+        micro_y = state[1]
+        micro_row = ((micro_x - 12.5) / (2.5))
+        micro_col = ((micro_y - 12.5) / (2.5))
+        return (micro_row, micro_col)
 
     #returns center point of tile in terms of micro-states(values 0 to 63)
     def tile_center_point(self, tile):
-        return ((tile[0] * 8) + 3.5), (tile[1] * 8) + 3.5)
+        tile_row = tile[0]
+        tile_col = tile[1]
+        return ((tile_row * 8) + 3.5), (tile_col * 8) + 3.5)
     
-    #calculate tile based on micro-state
-    def micro_to_tile_coordinates(self, micro_state):
-        (microRow, microCol) = micro_state
-
-        tile_row = int((microRow + 1) / 8)
-        tile_col = int((microCol + 1) / 8)
-
+    #determine which tile the micro_state is in
+    def micro_to_tile_converter(self, micro_state):
+        micro_row = micro_state[0]
+        micro_col = micro_state[1]
+        tile_row = int((micro_row + 1) / 8)
+        tile_col = int((micro_col + 1) / 8)
         return (tile_row, tile_col)
 
-    #Simply check if the coordinates are out of bounds
+    #Simply check if the tile coordinates are out of bounds
     def in_grid(self, tile):
-        (x, y) = tile
-        if x < 0 || x > 7 || y < 0 || y > 7:
+        (r, c) = tile
+        if r < 0 || r > 7 || c < 0 || c > 7:
             return False
         return True
 

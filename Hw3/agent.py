@@ -216,10 +216,10 @@ class MyTilingRLAgent(MyTabularRLAgent):
         # o = tuple([x for x in observations])
         # self.draw_q(o)
 
-    def map_state_action_to_tile(self, state, action):
+    def map_state_action_to_tile(self, observations, action):
 
-        # get current micro-state(values between 0 and 63)
-        (micro_row, micro_col) = micro_state_converter(state)
+        # get current micro-state(values between 0 and 63) from observations
+        micro_state = micro_state_converter(observations)
 
         # print debug info
         print "Micro-stateobservations:"
@@ -227,6 +227,36 @@ class MyTilingRLAgent(MyTabularRLAgent):
             print "Ob: ", x
         print "Row: ", micro_row, " Col: ", micro_col
         self.print_tile_values()
+
+        # map current state to destination state given action
+        new_micro_sate = apply_action_to_micro_state (micro_state, action)
+
+        # figure out which tile the destination state is in
+        (tile_row, tile_col) = micro_to_tile_coordinates(new_micro_state)
+
+        print "tile row: ", tile_row, " tile_col: ", tile_col
+
+        #macro-state row and col
+        return (tile_row, tile_col)
+
+    def print_tile_values(self):
+        for r in range(8):
+            print self.tile_values[r]
+
+    def get_value_of_tile(self, tile):
+        (tile_row, tile_col) = tile
+        return self.tile_values[tile_row][tile_col]
+
+
+    def set_value_of_tile(self, tile, new_value):
+        (tile_row, tile_col) = tile
+        self.tile_values[tile_row][tile_col] = new_value
+
+
+    def apply_action_to_micro_state(self, micro_state, action):
+
+        # break into row and column
+        (micro_row, micro_col) = micro_state
 
         # map current state to destination state given action
         if action == 0: # move up
@@ -242,18 +272,8 @@ class MyTilingRLAgent(MyTabularRLAgent):
             if micro_col > 0:
                 micro_col -= 1
 
-        # figure out which tile the destination state is in
-        # MAKE SURE THIS IS RIGHT!
-        (tile_row, tile_col) = micro_to_tile_coordinates((micro_row, micro_col))
-
-        print "tile row: ", tile_row, " tile_col: ", tile_col
-
-        #macro-state row and col
-        return (tile_row, tile_col)
-
-    def print_tile_values(self):
-        for r in range(8):
-            print self.tile_values[r]
+        # return resultant micro state
+        return (micro_row, micro_col)
 
     #converts the (x, y) coordinates to (micro_r, micro_c) coordinates
     def micro_state_converter(self, state):
@@ -270,7 +290,7 @@ class MyTilingRLAgent(MyTabularRLAgent):
         return ((tile_row * 8) + 3.5), (tile_col * 8) + 3.5)
     
     #determine which tile the micro_state is in
-    def micro_to_tile_converter(self, micro_state):
+    def micro_to_tile_coordinates(self, micro_state):
         micro_row = micro_state[0]
         micro_col = micro_state[1]
         tile_row = int((micro_row + 1) / 8)
@@ -283,7 +303,6 @@ class MyTilingRLAgent(MyTabularRLAgent):
         if r < 0 || r > 7 || c < 0 || c > 7:
             return False
         return True
-
 
 class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     """
@@ -299,49 +318,83 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         """
         MyTabularRLAgent.__init__(self, gamma, alpha, epsilon) # initialize the superclass
 
+    def predict(self, observations, action):
+        
+        # convert observations to a micro state row and column
+        micro_state = micro_state_converter(observations)
+
+        # predict the utility of the reulstant state after taking the given action
+        return calculate_micro_state_value(micro_state, action)
 
     def update(self, observations, action, new_value):
         pass
 
-    def predict(self, observations, action):
-        pass
-
     def calculate_distance(self, tile, cur_micro_state):
 
-        #center point of tile in terms of micro-states
+        # get center point of tile in terms of micro-states
         (tile_x, tile_y) = tile_center_point(tile)
-        #micro-state position
+
+        # micro-state position
         (micro_x, micro_y) = cur_micro_state
 
-        return (((tile_x - micro_x) * 2) + ((tile_y - micro_y) * 2)) ** 0.5
+        # return distance
+        return (((tile_x - micro_x) ** 2) + ((tile_y - micro_y) ** 2)) ** 0.5
 
     def calculate_weight(self, tile, distances):
-        #distances is a set of 2 or 3 tuples containing shortest distance tile
-        pass
+        
+        # distances is a map of 2 or 3 distances (mapped to tiles)
+        # get sum of distances
+        distances_sum = 0;
+        for tiles in distances:
+            distances_sum += distances[tiles]
+
+        # calulate wieght and return
+        return 1 - (distances[tile] / distances_sum)
 
     def calculate_micro_state_value(self, micro_state, action):
-        pass
+
+        # given micro state and action get resulting micro state
+        new_micro_state = apply_action_to_micro_state (micro_state, action)
+
+        # get closest tiles
+        # remember that this returns a dictionary of tiles (closest to micro state) and distances from the given micro state
+        closest_tiles = get_closest_tiles(new_micro_state)
+
+        # calculate tile
+        value = 0;
+        for tile in closest_tiles:
+            value += get_value_of_tile(tile) * calculate_weight(tile, closest_tiles)
+        return value
 
     #this method should tell us which 2 or 3 tiles are the closest to us
     def get_closest_tiles(self, cur_micro_state):
-        (cur_x, cur_y) = micro_to_tile_coordinates(cur_micro_state)
 
-        clostest_tiles = [(cur_x, cur_y)]
-        candidate_tiles = inbounds_and_not_blocked((cur_x, cur_y))
+        # get current tile row and column from current micro state
+        (cur_r, cur_c) = micro_to_tile_coordinates(cur_micro_state)
+
+        # create dictionary for closest tiles with their distances
+        clostest_tiles[(cur_r, cur_c)] = calculate_distance((cur_r, cur_c), cur_micro_state)
+
+        # get short list of clostest tiles
+        candidate_tiles = inbounds_and_not_blocked((cur_r, cur_c))
         temp = []
 
-        for (x,y) in candidate_tiles:
-            dist = calculate_distance((x, y), cur_micro_state)
-            temp.append((x,y,dist))
+        # calculate distances of tiles in candidate list
+        for (r,c) in candidate_tiles:
+            dist = calculate_distance((r, c), cur_micro_state)
+            temp.append((r,c,dist))
 
+        # get clostest tiles from candiate list
         if len(temp == 1):
-            (x,y,d) = temp.index(0)
-            return clostest_tiles.append((x, y))
+            (r,c,d) = temp.index(0)
+            return clostest_tiles[(r, c)] = d
 
-        #sort list by distances and pop the two items with shortest distance, add them to clostest tiles.
+        # sort list by distances and pop the two items with shortest distance, add them to clostest tiles.
         temp.sort(key = lambda tup: tup[2])
-        clostest_tiles.append(temp.pop())
-        clostest_tiles.append(temp.pop())
+        (r, c, d) = temp.pop()
+        clostest_tiles[(r, c)] = d 
+        (r, c, d) = temp.pop()
+        clostest_tiles[(r, c)] = d
         return clostest_tiles
 
     #return a list of tiles that we can actually calculate a shortest path to

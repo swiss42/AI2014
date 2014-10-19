@@ -91,6 +91,7 @@ class MyTabularRLAgent(AgentBrain):
             if value > max_value:
                 max_value = value
                 max_action = a
+        self.last_prediction = max_value
         return (max_action, max_value)
 
     def get_epsilon_greedy(self, observations, max_action = None, max_value = None):
@@ -301,13 +302,13 @@ class MyTilingRLAgent(MyTabularRLAgent):
 
         # map current state to destination state given action
         if action == 0: # move up
-            if micro_row < 61:
+            if micro_row < 62:
                 micro_row += 1
         elif action == 1: # move down
             if micro_row > 0:
                 micro_row -= 1
         elif action == 2: # move right
-            if micro_col < 61:
+            if micro_col < 62:
                 micro_col += 1
         elif action == 3: # move left
             if micro_col > 0:
@@ -350,7 +351,7 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         @param alpha learning rate (between 0 and 1)
         @param epsilon parameter for the epsilon-greedy policy (between 0 and 1)
         """
-        MyTabularRLAgent.__init__(self, gamma, alpha, epsilon) # initialize the superclass
+        MyTilingRLAgent.__init__(self, gamma, alpha, epsilon) # initialize the superclass
 
     def predict(self, observations, action):
         
@@ -361,7 +362,13 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         return self.calculate_micro_state_value(micro_state, action)
 
     def update(self, observations, action, new_value):
-        pass
+
+        last_micro_state = self.micro_state_converter(observations)
+        cur_micro_state = self.apply_action_to_micro_state(last_micro_state, action)
+
+        # update closest tiles
+        for tile in self.last_closest_tiles:
+            self.update_tile_value(observations, cur_micro_state, tile)
 
     def calculate_distance(self, tile, cur_micro_state):
 
@@ -393,6 +400,7 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         # get closest tiles
         # remember that this returns a dictionary of tiles (closest to micro state) and distances from the given micro state
         closest_tiles = self.get_closest_tiles(new_micro_state)
+        self.last_closest_tiles = closest_tiles
 
         # calculate tile
         value = 0;
@@ -407,19 +415,23 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         (cur_r, cur_c) = self.micro_to_tile_coordinates(cur_micro_state)
 
         # create dictionary for closest tiles with their distances
-        closest_tiles[(cur_r, cur_c)] = self.calculate_distance((cur_r, cur_c), cur_micro_state)
+        closest_tiles = {}
+        temp = []
+        closest_tiles[(cur_r, cur_c)] = d = self.calculate_distance((cur_r, cur_c), cur_micro_state)
+        temp.append((cur_r, cur_c, d))
 
         # get short list of clostest tiles
         candidate_tiles = self.inbounds_and_not_blocked((cur_r, cur_c))
-        temp = []
 
         # calculate distances of tiles in candidate list
         for (r,c) in candidate_tiles:
             dist = self.calculate_distance((r, c), cur_micro_state)
             temp.append((r,c,dist))
 
+        print "Candidate Tiles: ", candidate_tiles
+
         # get clostest tiles from candiate list
-        if len(temp == 1):
+        if len(temp) == 1:
             (r,c,d) = temp.index(0)
             closest_tiles[(r, c)] = d
             return closest_tiles
@@ -441,25 +453,25 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         walls = get_environment().maze.walls
 
         # test diagonals
-        if in_grid(x+1, y+1):
+        if self.in_grid((x + 1, y + 1)):
             if (not(((x+1, y+1), (x, y+1)) in walls) and 
                 not(((x, y+1), (x, y)) in walls) or
                 not(((x+1, y+1), (x+1, y)) in walls) and
                 not(((x + 1, y), (x, y)) in walls)):
                     candidates.append((x+1, y+1))
-        if in_grid(x - 1, y + 1):
+        if self.in_grid((x - 1, y + 1)):
             if (not(((x-1, y+1), (x, y+1)) in walls) and
                 not(((x, y+1), (x, y)) in walls) or 
                 not(((x-1, y+1), (x-1, y)) in walls) and
                 not(((x - 1, y), (x, y)) in walls)):
                     candidates.append((x-1, y+1))
-        if in_grid(x - 1, y - 1):
+        if self.in_grid((x - 1, y - 1)):
             if (not(((x-1, y-1), (x, y-1)) in walls) and
                 not(((x, y-1), (x, y)) in walls) or 
                 not(((x-1, y-1), (x-1, y)) in walls) and
                 not(((x-1, y), (x, y)) in walls)):
                     candidates.append((x-1, y-1))
-        if in_grid(x + 1, y - 1):
+        if self.in_grid((x + 1, y - 1)):
             if (not(((x+1, y-1), (x, y-1)) in walls) and
                 not(((x, y-1), (x, y)) in walls) or 
                 not(((x+1, y-1), (x+1, y)) in walls) and
@@ -467,19 +479,19 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
                     candidates.append((x+1, y-1))
 
         # test others
-        if in_grid(x, y+1):
+        if self.in_grid((x, y+1)):
             if not((x, y+1), (x, y) in walls):
                 candidates.append(x, y+1)
 
-        if in_grid(x, y-1):
+        if self.in_grid((x, y-1)):
             if not((x, y-1), (x, y) in walls):
                 candidates.append(x, y-1)
 
-        if in_grid(x+1, y):
+        if self.in_grid((x+1, y)):
             if not((x+1, y), (x, y) in walls):
                 candidates.append(x+1, y)
 
-        if in_grid(x-1, y):
+        if self.in_grid((x-1, y)):
             if not((x-1, y), (x, y) in walls):
                 candidates.append(x-1, y)
 
@@ -500,17 +512,17 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         # calculate action values
         action_values = []
         for a in possible_actions:
-            action_values.append(self.calculate_micro_state_value(micro_state, a))
+            action_values.append(self.calculate_micro_state_value(cur_micro_state, a))
 
         # get needed other values
-        tile_weight = self.calculate_weight(tile)
+        tile_weight = self.calculate_weight(tile, self.last_closest_tiles)
         tile_value = self.get_value_of_tile(tile)
         reward = self.reward
         alpha = self.alpha 
         gamma = self.gamma
 
         # calculate new update value
-        new_value = tile_value + alpha * tile_weight (reward + gamma * max(action_values) - ) 
+        new_value = tile_value + alpha * tile_weight * (reward + gamma * max(action_values) - self.last_prediction) 
         self.set_value_of_tile(tile, new_value)
 
 

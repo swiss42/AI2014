@@ -390,7 +390,7 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
             distances_sum += distances[tiles]
 
         # calulate wieght and return
-        return 1 - (distances[tile] / distances_sum)
+        return 1 - (distances[tile] / distances_sum) # BUG HERE
 
     def calculate_micro_state_value(self, micro_state, action):
 
@@ -428,12 +428,11 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
             dist = self.calculate_distance((r, c), cur_micro_state)
             temp.append((r,c,dist))
 
-        print "Candidate Tiles: ", candidate_tiles
-
         # get clostest tiles from candiate list
         if len(temp) == 1:
             (r,c,d) = temp.index(0)
             closest_tiles[(r, c)] = d
+            print "### Closest Tiles1", closest_tiles
             return closest_tiles
 
         # sort list by distances and pop the two items with shortest distance, add them to clostest tiles.
@@ -442,6 +441,9 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         closest_tiles[(r, c)] = d 
         (r, c, d) = temp.pop()
         closest_tiles[(r, c)] = d
+
+        print "### Closest Tiles2", closest_tiles
+
         return closest_tiles
 
     #return a list of tiles that we can actually calculate a shortest path to
@@ -480,20 +482,20 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
 
         # test others
         if self.in_grid((x, y+1)):
-            if not((x, y+1), (x, y) in walls):
-                candidates.append(x, y+1)
+            if not(((x, y+1), (x, y)) in walls):
+                candidates.append((x, y+1))
 
         if self.in_grid((x, y-1)):
-            if not((x, y-1), (x, y) in walls):
-                candidates.append(x, y-1)
+            if not(((x, y-1), (x, y)) in walls):
+                candidates.append((x, y-1))
 
         if self.in_grid((x+1, y)):
-            if not((x+1, y), (x, y) in walls):
-                candidates.append(x+1, y)
+            if not(((x+1, y), (x, y)) in walls):
+                candidates.append((x+1, y))
 
         if self.in_grid((x-1, y)):
-            if not((x-1, y), (x, y) in walls):
-                candidates.append(x-1, y)
+            if not(((x-1, y), (x, y)) in walls):
+                candidates.append((x-1, y))
 
         return candidates
 

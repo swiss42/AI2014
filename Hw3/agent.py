@@ -128,6 +128,7 @@ class MyTabularRLAgent(AgentBrain):
 
         # get the reward from the previous action
         r = reward[0]
+        self.reward = r
         
         # get the updated epsilon, in case the slider was changed by the user
         self.epsilon = get_environment().epsilon
@@ -215,6 +216,32 @@ class MyTilingRLAgent(MyTabularRLAgent):
         # draw q-value markers
         # o = tuple([x for x in observations])
         # self.draw_q(o)
+
+    def get_possible_actions(self, observations):
+        """
+        Get the possible actions that can be taken given the state (observations)
+        """
+        aMin = self.action_info.min(0)
+        aMax = self.action_info.max(0)
+        all_actions = range(int(aMin), int(aMax+1))
+
+        # loop over action
+        actions = []
+        for a in all_actions:
+
+            # figure out which tile action puts you in
+            x = observations[0]
+            y = observations[1]
+            cur_tile = get_environment().maze.xy2rc(x, y)
+            next_tile = self.map_state_action_to_tile(observations, a)
+
+            # check if there is a wall between
+            if (not ((cur_tile, next_tile) in get_environment().maze.walls)):
+                actions.append(a)
+
+        print "Possible actions: ", actions
+
+        return actions
 
     def map_state_action_to_tile(self, observations, action):
 
@@ -465,8 +492,26 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
             return False
         return True
 
-    def update_tile_value(self, tile, value):
-        pass
+    def update_tile_value(self, observations, cur_micro_state, tile):
+
+        # get list of possible action
+        possible_actions = self.get_possible_actions(observations)
+
+        # calculate action values
+        action_values = []
+        for a in possible_actions:
+            action_values.append(self.calculate_micro_state_value(micro_state, a))
+
+        # get needed other values
+        tile_weight = self.calculate_weight(tile)
+        tile_value = self.get_value_of_tile(tile)
+        reward = self.reward
+        alpha = self.alpha 
+        gamma = self.gamma
+
+        # calculate new update value
+        new_value = tile_value + alpha * tile_weight (reward + gamma * max(action_values) - ) 
+        self.set_value_of_tile(tile, new_value)
 
 
 

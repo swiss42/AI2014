@@ -274,13 +274,13 @@ class MyTilingRLAgent(MyTabularRLAgent):
 
         # map current state to destination state given action
         if action == 0: # move up
-            if micro_row < 62:
+            if micro_row < 61:
                 micro_row += 1
         elif action == 1: # move down
             if micro_row > 0:
                 micro_row -= 1
         elif action == 2: # move right
-            if micro_col < 62:
+            if micro_col < 61:
                 micro_col += 1
         elif action == 3: # move left
             if micro_col > 0:

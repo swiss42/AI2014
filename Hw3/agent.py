@@ -28,6 +28,10 @@ class MyTabularRLAgent(AgentBrain):
         another map of actions to Q-values. To look up a Q-value, call the predict method.
         """
         self.Q = {} # our Q-function table
+        self.predictions = {}
+        self.last_prediction = 0
+        self.weights = [{},{},{},{}]
+        self.last_weights = {}
         print 
     
     def __str__(self):
@@ -86,12 +90,12 @@ class MyTabularRLAgent(AgentBrain):
         actions = self.get_possible_actions(observations)
         max_action = actions[0]
         max_value = self.predict(observations, max_action)
-        for a in actions[1:]:
+        for a in actions:
             value = self.predict(observations, a)
+            self.predictions[a] = value
             if value > max_value:
                 max_value = value
                 max_action = a
-        self.last_prediction = max_value
         return (max_action, max_value)
 
     def get_epsilon_greedy(self, observations, max_action = None, max_value = None):
@@ -100,13 +104,20 @@ class MyTabularRLAgent(AgentBrain):
         """
         actions = self.get_possible_actions(observations)
         if random.random() < self.epsilon: # epsilon of the time, act randomly
-            return random.choice(actions)
+            action = random.choice(actions)
+            self.last_prediction = self.predictions[action]
+            self.last_weight = self.weights[action]
+            return action
         elif max_action is not None and max_value is not None:
             # we already know the max action
+            self.last_prediction = self.predictions[max_action]
+            self.last_weight = self.weights[max_action]
             return max_action
         else:
             # we need to get the max action
             (max_action, max_value) = self.get_max_action(observations)
+            self.last_prediction = self.predictions[max_action]
+            self.last_weight = self.weights[max_action]
             return max_action
     
     def start(self, time, observations):
@@ -390,7 +401,8 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
             distances_sum += distances[tiles]
 
         # calulate wieght and return
-        return 1 - (distances[tile] / distances_sum) # BUG HERE
+        weight = 1 - (distances[tile] / distances_sum) # BUG HERE
+        return weight
 
     def calculate_micro_state_value(self, micro_state, action):
 
@@ -405,7 +417,9 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         # calculate tile
         value = 0;
         for tile in closest_tiles:
-            value += self.get_value_of_tile(tile) * self.calculate_weight(tile, closest_tiles)
+            weight = self.calculate_weight(tile, closest_tiles)
+            value += self.get_value_of_tile(tile) * weight
+            self.weights[action][tile] = weight
         return value
 
     #this method should tell us which 2 or 3 tiles are the closest to us
@@ -517,7 +531,10 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
             action_values.append(self.calculate_micro_state_value(cur_micro_state, a))
 
         # get needed other values
-        tile_weight = self.calculate_weight(tile, self.last_closest_tiles)
+        if len(self.last_weights) > 0:
+            tile_weight = self.last_weights[tile]
+        else:
+            tile_weight = 0
         tile_value = self.get_value_of_tile(tile)
         reward = self.reward
         alpha = self.alpha 

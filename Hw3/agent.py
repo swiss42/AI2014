@@ -219,22 +219,36 @@ class MyTilingRLAgent(MyTabularRLAgent):
     def map_state_action_to_tile(self, observations, action):
 
         # get current micro-state(values between 0 and 63) from observations
-        micro_state = micro_state_converter(observations)
+        (micro_row, micro_col) = micro_state = self.micro_state_converter(observations)
 
         # print debug info
-        print "Micro-stateobservations:"
-        for x in state:
-            print "Ob: ", x
-        print "Row: ", micro_row, " Col: ", micro_col
+        mx = observations[0]
+        my = observations[1]
+        print "START"
         self.print_tile_values()
+        print "Micro-stateobservations:"
+        for x in observations:
+            print "Ob: ", x
+        print "Current Micro Row: ", micro_row, "Current Micro Col: ", micro_col
+        print "Current Micro X: ", mx, "Current Micro Y: ", my
 
         # map current state to destination state given action
-        new_micro_sate = apply_action_to_micro_state (micro_state, action)
+        new_micro_state = self.apply_action_to_micro_state (micro_state, action)
 
         # figure out which tile the destination state is in
-        (tile_row, tile_col) = micro_to_tile_coordinates(new_micro_state)
+        (tile_row, tile_col) = self.micro_to_tile_coordinates(new_micro_state)
 
-        print "tile row: ", tile_row, " tile_col: ", tile_col
+        # print more debug info
+        print "Future Tile Row: ", tile_row, "Future Tile Col: ", tile_col
+        (r,c) = self.micro_to_tile_coordinates(micro_state)
+        print "Cur Tile Row: ", r, "Cur Tile Col: ", c
+        (ar,ac) = get_environment().maze.xy2rc(mx, my)
+        print "Actual Cur Tile Row: ", ar, "Actual Cur Tile Col: ", ac
+        print "END"
+
+        #TEST our mapping
+        assert (ar == r)
+        assert (ac == c)
 
         #macro-state row and col
         return (tile_row, tile_col)
@@ -260,13 +274,13 @@ class MyTilingRLAgent(MyTabularRLAgent):
 
         # map current state to destination state given action
         if action == 0: # move up
-            if micro_row < 63:
+            if micro_row < 62:
                 micro_row += 1
         elif action == 1: # move down
             if micro_row > 0:
                 micro_row -= 1
         elif action == 2: # move right
-            if micro_col < 63:
+            if micro_col < 62:
                 micro_col += 1
         elif action == 3: # move left
             if micro_col > 0:
@@ -287,7 +301,7 @@ class MyTilingRLAgent(MyTabularRLAgent):
     def tile_center_point(self, tile):
         tile_row = tile[0]
         tile_col = tile[1]
-        return ((tile_row * 8) + 3.5), (tile_col * 8) + 3.5)
+        return ((tile_row * 8) + 3.5, (tile_col * 8) + 3.5)
     
     #determine which tile the micro_state is in
     def micro_to_tile_coordinates(self, micro_state):
@@ -296,13 +310,6 @@ class MyTilingRLAgent(MyTabularRLAgent):
         tile_row = int((micro_row + 1) / 8)
         tile_col = int((micro_col + 1) / 8)
         return (tile_row, tile_col)
-
-    #Simply check if the tile coordinates are out of bounds
-    def in_grid(self, tile):
-        (r, c) = tile
-        if r < 0 || r > 7 || c < 0 || c > 7:
-            return False
-        return True
 
 class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     """
@@ -321,10 +328,10 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     def predict(self, observations, action):
         
         # convert observations to a micro state row and column
-        micro_state = micro_state_converter(observations)
+        micro_state = self.micro_state_converter(observations)
 
         # predict the utility of the reulstant state after taking the given action
-        return calculate_micro_state_value(micro_state, action)
+        return self.calculate_micro_state_value(micro_state, action)
 
     def update(self, observations, action, new_value):
         pass
@@ -332,7 +339,7 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     def calculate_distance(self, tile, cur_micro_state):
 
         # get center point of tile in terms of micro-states
-        (tile_x, tile_y) = tile_center_point(tile)
+        (tile_x, tile_y) = self.tile_center_point(tile)
 
         # micro-state position
         (micro_x, micro_y) = cur_micro_state
@@ -354,96 +361,109 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     def calculate_micro_state_value(self, micro_state, action):
 
         # given micro state and action get resulting micro state
-        new_micro_state = apply_action_to_micro_state (micro_state, action)
+        new_micro_state = self.apply_action_to_micro_state (micro_state, action)
 
         # get closest tiles
         # remember that this returns a dictionary of tiles (closest to micro state) and distances from the given micro state
-        closest_tiles = get_closest_tiles(new_micro_state)
+        closest_tiles = self.get_closest_tiles(new_micro_state)
 
         # calculate tile
         value = 0;
         for tile in closest_tiles:
-            value += get_value_of_tile(tile) * calculate_weight(tile, closest_tiles)
+            value += self.get_value_of_tile(tile) * self.calculate_weight(tile, closest_tiles)
         return value
 
     #this method should tell us which 2 or 3 tiles are the closest to us
     def get_closest_tiles(self, cur_micro_state):
 
         # get current tile row and column from current micro state
-        (cur_r, cur_c) = micro_to_tile_coordinates(cur_micro_state)
+        (cur_r, cur_c) = self.micro_to_tile_coordinates(cur_micro_state)
 
         # create dictionary for closest tiles with their distances
-        clostest_tiles[(cur_r, cur_c)] = calculate_distance((cur_r, cur_c), cur_micro_state)
+        closest_tiles[(cur_r, cur_c)] = self.calculate_distance((cur_r, cur_c), cur_micro_state)
 
         # get short list of clostest tiles
-        candidate_tiles = inbounds_and_not_blocked((cur_r, cur_c))
+        candidate_tiles = self.inbounds_and_not_blocked((cur_r, cur_c))
         temp = []
 
         # calculate distances of tiles in candidate list
         for (r,c) in candidate_tiles:
-            dist = calculate_distance((r, c), cur_micro_state)
+            dist = self.calculate_distance((r, c), cur_micro_state)
             temp.append((r,c,dist))
 
         # get clostest tiles from candiate list
         if len(temp == 1):
             (r,c,d) = temp.index(0)
-            return clostest_tiles[(r, c)] = d
+            closest_tiles[(r, c)] = d
+            return closest_tiles
 
         # sort list by distances and pop the two items with shortest distance, add them to clostest tiles.
         temp.sort(key = lambda tup: tup[2])
         (r, c, d) = temp.pop()
-        clostest_tiles[(r, c)] = d 
+        closest_tiles[(r, c)] = d 
         (r, c, d) = temp.pop()
-        clostest_tiles[(r, c)] = d
-        return clostest_tiles
+        closest_tiles[(r, c)] = d
+        return closest_tiles
 
     #return a list of tiles that we can actually calculate a shortest path to
     def inbounds_and_not_blocked(self, tile):
         (x, y) = tile
         candidates = []
-        #top left
-        if in_grid(x+1, y+1):
-            if(not(((x+1, y+1), (x, y+1)) in get_environment().maze.walls) and
-             not((x, y+1), (x, y)) in get_environment().maze.walls)) or 
-             not(((x+1, y+1), (x+1, y)) in get_environment().maze.walls) and
-             not(((x + 1, y), (x, y)) in get_environment().maze.walls)):
-                candidates.append((x+1, y+1))
-        if in_grid(x - 1, y + 1):
-           if(not(((x-1, y+1), (x, y+1)) in get_environment().maze.walls) and
-             not((x, y+1), (x, y)) in get_environment().maze.walls)) or 
-             not(((x-1, y+1), (x-1, y)) in get_environment().maze.walls) and
-             not(((x - 1, y), (x, y)) in get_environment().maze.walls)):
-                candidates.append((x-1, y+1))
-        if in_grid(x - 1, y - 1):
-            if(not(((x-1, y-1), (x, y-1)) in get_environment().maze.walls) and
-             not((x, y-1), (x, y)) in get_environment().maze.walls)) or 
-             not(((x-1, y-1), (x-1, y)) in get_environment().maze.walls) and
-             not(((x-1, y), (x, y)) in get_environment().maze.walls)):
-                candidates.append((x-1, y-1))
-        if in_grid(x + 1, y - 1):
-            if(not(((x+1, y-1), (x, y-1)) in get_environment().maze.walls) and
-             not((x, y-1), (x, y)) in get_environment().maze.walls)) or 
-             not(((x+1, y-1), (x+1, y)) in get_environment().maze.walls) and
-             not(((x + 1, y), (x, y)) in get_environment().maze.walls)):
-                candidates.append((x+1, y-1))
 
+        # get walls
+        walls = get_environment().maze.walls
+
+        # test diagonals
+        if in_grid(x+1, y+1):
+            if (not(((x+1, y+1), (x, y+1)) in walls) and 
+                not(((x, y+1), (x, y)) in walls) or
+                not(((x+1, y+1), (x+1, y)) in walls) and
+                not(((x + 1, y), (x, y)) in walls)):
+                    candidates.append((x+1, y+1))
+        if in_grid(x - 1, y + 1):
+            if (not(((x-1, y+1), (x, y+1)) in walls) and
+                not(((x, y+1), (x, y)) in walls) or 
+                not(((x-1, y+1), (x-1, y)) in walls) and
+                not(((x - 1, y), (x, y)) in walls)):
+                    candidates.append((x-1, y+1))
+        if in_grid(x - 1, y - 1):
+            if (not(((x-1, y-1), (x, y-1)) in walls) and
+                not(((x, y-1), (x, y)) in walls) or 
+                not(((x-1, y-1), (x-1, y)) in walls) and
+                not(((x-1, y), (x, y)) in walls)):
+                    candidates.append((x-1, y-1))
+        if in_grid(x + 1, y - 1):
+            if (not(((x+1, y-1), (x, y-1)) in walls) and
+                not(((x, y-1), (x, y)) in walls) or 
+                not(((x+1, y-1), (x+1, y)) in walls) and
+                not(((x + 1, y), (x, y)) in walls)):
+                    candidates.append((x+1, y-1))
+
+        # test others
         if in_grid(x, y+1):
-            if not((x, y+1), (x, y)) in get_environment().maze.walls):
+            if not((x, y+1), (x, y) in walls):
                 candidates.append(x, y+1)
 
         if in_grid(x, y-1):
-            if not((x, y-1), (x, y)) in get_environment().maze.walls):
+            if not((x, y-1), (x, y) in walls):
                 candidates.append(x, y-1)
 
         if in_grid(x+1, y):
-            if not((x+1, y), (x, y)) in get_environment().maze.walls):
+            if not((x+1, y), (x, y) in walls):
                 candidates.append(x+1, y)
 
         if in_grid(x-1, y):
-            if not((x-1, y), (x, y)) in get_environment().maze.walls):
+            if not((x-1, y), (x, y) in walls):
                 candidates.append(x-1, y)
 
         return candidates
+
+    #Simply check if the tile coordinates are out of bounds
+    def in_grid(self, tile):
+        (r, c) = tile
+        if (r < 0) or (r > 7) or (c < 0) or (c > 7):
+            return False
+        return True
 
     def update_tile_value(self, tile, value):
         pass

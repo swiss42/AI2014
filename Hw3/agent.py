@@ -389,18 +389,18 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         if random.random() < self.epsilon: # epsilon of the time, act randomly
             action = random.choice(actions)
             self.last_prediction = self.predictions[action]
-            self.last_weight = self.weights[action]
+            self.last_weights = self.weights[action]
             return action
         elif max_action is not None and max_value is not None:
             # we already know the max action
             self.last_prediction = self.predictions[max_action]
-            self.last_weight = self.weights[max_action]
+            self.last_weights = self.weights[max_action]
             return max_action
         else:
             # we need to get the max action
             (max_action, max_value) = self.get_max_action(observations)
             self.last_prediction = self.predictions[max_action]
-            self.last_weight = self.weights[max_action]
+            self.last_weights = self.weights[max_action]
             return max_action
 
     def predict(self, observations, action):
@@ -468,8 +468,8 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         # distances is a map of 2 or 3 distances (mapped to tiles)
         # get sum of distances
         distances_sum = 0;
-        for tiles in distances:
-            distances_sum += distances[tiles]
+        for tile_ in distances:
+            distances_sum += distances[tile_]
 
         # calulate wieght and return
         weight = 1 - (distances[tile] / distances_sum) # BUG HERE
@@ -483,6 +483,8 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
 
         # given micro state and action get resulting micro state
         new_micro_state = self.apply_action_to_micro_state (micro_state, action)
+
+        # CHECK micro state
 
         # get closest tiles
         # remember that this returns a dictionary of tiles (closest to micro state) and distances from the given micro state

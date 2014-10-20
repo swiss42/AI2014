@@ -363,6 +363,13 @@ class MyTilingRLAgent(MyTabularRLAgent):
             return False
         return True
 
+    def in_micro_grid(self, micro_state):
+        (r, c) = micro_state
+        if (r < -1) or (r > 62) or (c < -1) or (c > 62):
+            return False
+        return True
+
+
 class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     """
     Nearest Neighbors RL Agent
@@ -485,6 +492,8 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         new_micro_state = self.apply_action_to_micro_state (micro_state, action)
 
         # CHECK micro state
+        if not self.in_micro_grid(new_micro_state):
+            return (-sys.maxint - 2)  #over 9000
 
         # get closest tiles
         # remember that this returns a dictionary of tiles (closest to micro state) and distances from the given micro state

@@ -23,12 +23,13 @@ class MyTabularRLAgent(AgentBrain):
         self.gamma = gamma
         self.alpha = alpha
         self.epsilon = epsilon
+        self.previous_action = -1 # start if off with an impossible action so we know it has not been used before
         """
         Our Q-function table. Maps from a tuple of observations (state) to 
         another map of actions to Q-values. To look up a Q-value, call the predict method.
         """
         self.Q = {} # our Q-function table
-        self.predictions = {}
+        self.predictions = [0, 0, 0, 0]
         self.last_prediction = 0
         self.weights = [{},{},{},{}]
         self.last_weights = {}
@@ -90,7 +91,8 @@ class MyTabularRLAgent(AgentBrain):
         actions = self.get_possible_actions(observations)
         max_action = actions[0]
         max_value = self.predict(observations, max_action)
-        for a in actions:
+        self.predictions[0] = max_value
+        for a in actions[1:]:
             value = self.predict(observations, a)
             self.predictions[a] = value
             if value > max_value:
@@ -106,18 +108,18 @@ class MyTabularRLAgent(AgentBrain):
         if random.random() < self.epsilon: # epsilon of the time, act randomly
             action = random.choice(actions)
             self.last_prediction = self.predictions[action]
-            self.last_weight = self.weights[action]
+            #self.last_weight = self.weights[action]
             return action
         elif max_action is not None and max_value is not None:
             # we already know the max action
             self.last_prediction = self.predictions[max_action]
-            self.last_weight = self.weights[max_action]
+            #self.last_weight = self.weights[max_action]
             return max_action
         else:
             # we need to get the max action
             (max_action, max_value) = self.get_max_action(observations)
             self.last_prediction = self.predictions[max_action]
-            self.last_weight = self.weights[max_action]
+            #self.last_weight = self.weights[max_action]
             return max_action
     
     def start(self, time, observations):
@@ -209,10 +211,17 @@ class MyTilingRLAgent(MyTabularRLAgent):
         and returning that tiles value from the tile_values list.
         """
         # get tile row and column that action will place you in from given state
-        (tile_row, tile_col) = self.map_state_action_to_tile(observations, action)
+        tile = self.map_state_action_to_tile(observations, action)
+
+        #DEBUGGING
+        self.unit_test_our_mapping(observations)
+        self.print_debug_info(observations)
 
         # lookup tile value in tile_values and return
-        return self.tile_values[tile_row][tile_col]
+        prediction = -sys.maxint - 2
+        if self.in_grid(tile):
+            prediction = self.get_value_of_tile(tile)
+        return prediction
 
     def update(self, observations, action, new_value):
         """
@@ -220,10 +229,11 @@ class MyTilingRLAgent(MyTabularRLAgent):
         """
 
         # get tile row and column that action will place you in from given state
-        (tile_row, tile_col) = self.map_state_action_to_tile(observations, action)
+        tile = self.map_state_action_to_tile(observations, action)
+        assert (self.in_grid(tile))
 
         # update with new value
-        self.tile_values[tile_row][tile_col] = new_value
+        self.set_value_of_tile(tile, new_value)
 
         # draw q-value markers
         # o = tuple([x for x in observations])
@@ -237,7 +247,8 @@ class MyTilingRLAgent(MyTabularRLAgent):
         aMax = self.action_info.max(0)
         all_actions = range(int(aMin), int(aMax+1))
 
-        # loop over action
+        # loop over action and don't include actions that crash you into wass
+        # or put you out of bounds
         actions = []
         for a in all_actions:
 
@@ -247,9 +258,12 @@ class MyTilingRLAgent(MyTabularRLAgent):
             cur_tile = get_environment().maze.xy2rc(x, y)
             next_tile = self.map_state_action_to_tile(observations, a)
 
-            # check if there is a wall between
-            if (not ((cur_tile, next_tile) in get_environment().maze.walls)):
-                actions.append(a)
+            # check if action puts agent out of bounds
+            if self.in_grid(next_tile):
+
+                # check if there is a wall between
+                if (not ((cur_tile, next_tile) in get_environment().maze.walls)):
+                    actions.append(a)
 
         print "Possible actions: ", actions
 
@@ -260,51 +274,55 @@ class MyTilingRLAgent(MyTabularRLAgent):
         # get current micro-state(values between 0 and 63) from observations
         (micro_row, micro_col) = micro_state = self.micro_state_converter(observations)
 
-        # print debug info
-        mx = observations[0]
-        my = observations[1]
-        print "START"
-        self.print_tile_values()
-        print "Micro-stateobservations:"
-        for x in observations:
-            print "Ob: ", x
-        print "Current Micro Row: ", micro_row, "Current Micro Col: ", micro_col
-        print "Current Micro X: ", mx, "Current Micro Y: ", my
-
         # map current state to destination state given action
         new_micro_state = self.apply_action_to_micro_state (micro_state, action)
 
         # figure out which tile the destination state is in
         (tile_row, tile_col) = self.micro_to_tile_coordinates(new_micro_state)
 
-        # print more debug info
-        print "Future Tile Row: ", tile_row, "Future Tile Col: ", tile_col
-        (r,c) = self.micro_to_tile_coordinates(micro_state)
-        print "Cur Tile Row: ", r, "Cur Tile Col: ", c
-        (ar,ac) = get_environment().maze.xy2rc(mx, my)
-        print "Actual Cur Tile Row: ", ar, "Actual Cur Tile Col: ", ac
-        print "END"
-
-        #TEST our mapping
-        assert (ar == r)
-        assert (ac == c)
-
         #macro-state row and col
         return (tile_row, tile_col)
 
+    def print_debug_info(self, observations):
+
+        mx = observations[0]
+        my = observations[1]
+        micro_state = self.micro_state_converter(observations)
+        print "START"
+        self.print_tile_values()
+        print "Micro-stateobservations:"
+        for x in observations:
+            print "Ob: ", x
+        print "Current Micro Row: ", micro_state[0], "Current Micro Col: ", micro_state[1]
+        print "Current Micro X: ", mx, "Current Micro Y: ", my
+
+    def unit_test_our_mapping(self, observations):
+        #TEST our mapping
+        if self.previous_action != -1:
+            mx = observations[0]
+            my = observations[1]
+            micro_state = self.micro_state_converter(observations)
+            (r, c) = self.micro_to_tile_coordinates(micro_state)
+            (ar,ac) = get_environment().maze.xy2rc(mx, my)
+            print "######### TEST ##########"
+            print "r: ", r, ", c: ", c
+            print "ar: ", ar, ", ac: ", ac
+            print "######### END ##########"
+            assert (ar == r)
+            assert (ac == c)
+
     def print_tile_values(self):
-        for r in range(8):
+        s = ""
+        for r in reversed(range(8)):
             print self.tile_values[r]
 
     def get_value_of_tile(self, tile):
         (tile_row, tile_col) = tile
         return self.tile_values[tile_row][tile_col]
 
-
     def set_value_of_tile(self, tile, new_value):
         (tile_row, tile_col) = tile
         self.tile_values[tile_row][tile_col] = new_value
-
 
     def apply_action_to_micro_state(self, micro_state, action):
 
@@ -312,26 +330,27 @@ class MyTilingRLAgent(MyTabularRLAgent):
         (micro_row, micro_col) = micro_state
 
         # map current state to destination state given action
+        STEP_OFFSET = 1
         if action == 0: # move up
-            if micro_row < 62:
-                micro_row += 1
+            #if micro_row < 62:
+                micro_row += STEP_OFFSET
         elif action == 1: # move down
-            if micro_row > 0:
-                micro_row -= 1
+            #if micro_row > 0:
+                micro_row -= STEP_OFFSET
         elif action == 2: # move right
-            if micro_col < 62:
-                micro_col += 1
+            #if micro_col < 62:
+                micro_col += STEP_OFFSET
         elif action == 3: # move left
-            if micro_col > 0:
-                micro_col -= 1
+            #if micro_col > 0:
+                micro_col -= STEP_OFFSET
 
         # return resultant micro state
         return (micro_row, micro_col)
 
     #converts the (x, y) coordinates to (micro_r, micro_c) coordinates
-    def micro_state_converter(self, state):
-        micro_x = state[0]
-        micro_y = state[1]
+    def micro_state_converter(self, observations):
+        micro_x = observations[0]
+        micro_y = observations[1]
         micro_row = ((micro_x - 12.5) / (2.5))
         micro_col = ((micro_y - 12.5) / (2.5))
         return (micro_row, micro_col)
@@ -346,9 +365,16 @@ class MyTilingRLAgent(MyTabularRLAgent):
     def micro_to_tile_coordinates(self, micro_state):
         micro_row = micro_state[0]
         micro_col = micro_state[1]
-        tile_row = int((micro_row + 1) / 8)
-        tile_col = int((micro_col + 1) / 8)
+        tile_row = int(((micro_row + 1) / 8))
+        tile_col = int(((micro_col + 1) / 8))
         return (tile_row, tile_col)
+
+    #Simply check if the tile coordinates are out of bounds
+    def in_grid(self, tile):
+        (r, c) = tile
+        if (r < 0) or (r > 7) or (c < 0) or (c > 7):
+            return False
+        return True
 
 class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     """
@@ -513,35 +539,29 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
 
         return candidates
 
-    #Simply check if the tile coordinates are out of bounds
-    def in_grid(self, tile):
-        (r, c) = tile
-        if (r < 0) or (r > 7) or (c < 0) or (c > 7):
-            return False
-        return True
-
     def update_tile_value(self, observations, cur_micro_state, tile):
 
         # get list of possible action
-        possible_actions = self.get_possible_actions(observations)
+        # possible_actions = self.get_possible_actions(observations)
 
-        # calculate action values
-        action_values = []
-        for a in possible_actions:
-            action_values.append(self.calculate_micro_state_value(cur_micro_state, a))
+        # # calculate action values
+        # action_values = []
+        # for a in possible_actions:
+        #     action_values.append(self.calculate_micro_state_value(cur_micro_state, a))
 
-        # get needed other values
-        if len(self.last_weights) > 0:
-            tile_weight = self.last_weights[tile]
-        else:
-            tile_weight = 0
-        tile_value = self.get_value_of_tile(tile)
-        reward = self.reward
-        alpha = self.alpha 
-        gamma = self.gamma
+        # # get needed other values
+        # if len(self.last_weights) > 0:
+        #     tile_weight = self.last_weights[tile]
+        # else:
+        #     tile_weight = 0
+        # tile_value = self.get_value_of_tile(tile)
+        # reward = self.reward
+        # alpha = self.alpha 
+        # gamma = self.gamma
 
-        # calculate new update value
-        new_value = tile_value + alpha * tile_weight * (reward + gamma * max(action_values) - self.last_prediction) 
+        # # calculate new update value
+        # new_value = tile_value + alpha * tile_weight * (reward + gamma * max(action_values) - self.last_prediction)
+        new_value = 0 
         self.set_value_of_tile(tile, new_value)
 
 

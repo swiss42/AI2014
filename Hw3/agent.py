@@ -247,8 +247,6 @@ class MyTilingRLAgent(MyTabularRLAgent):
                 if not self.is_tuple_in_walls((cur_tile, next_tile)):
                     actions.append(a)
 
-        #print "Possible actions: ", actions
-
         return actions
 
     def map_state_action_to_tile(self, observations, action):
@@ -383,33 +381,7 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         @param alpha learning rate (between 0 and 1)
         @param epsilon parameter for the epsilon-greedy policy (between 0 and 1)
         """
-        #self.predictions = [0, 0, 0, 0]
-        #self.last_prediction = 0
-        #self.weights = [{},{},{},{}]
-        #self.last_weights = {}
         MyTilingRLAgent.__init__(self, gamma, alpha, epsilon) # initialize the superclass
-
-    # def get_epsilon_greedy(self, observations, max_action = None, max_value = None):
-    #     """
-    #     get the epsilon-greedy action
-    #     """
-    #     actions = self.get_possible_actions(observations)
-    #     if random.random() < self.epsilon: # epsilon of the time, act randomly
-    #         action = random.choice(actions)
-    #         self.last_prediction = self.predictions[action]
-    #         #self.last_weights = self.weights[action]
-    #         return action
-    #     elif max_action is not None and max_value is not None:
-    #         # we already know the max action
-    #         self.last_prediction = self.predictions[max_action]
-    #         #self.last_weights = self.weights[max_action]
-    #         return max_action
-    #     else:
-    #         # we need to get the max action
-    #         (max_action, max_value) = self.get_max_action(observations)
-    #         self.last_prediction = self.predictions[max_action]
-    #         #self.last_weights = self.weights[max_action]
-    #         return max_action
 
     def predict(self, observations, action):
         
@@ -420,9 +392,6 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         print "##########   Predict   ###########"
         prediction = self.calculate_micro_state_value(micro_state, action)
         print "########## End Predict ###########"
-
-        # save prediction so we can use it next iteration in out our update method
-        #self.predictions[action] = prediction
 
         return prediction
 

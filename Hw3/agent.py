@@ -162,6 +162,7 @@ class MyTabularRLAgent(AgentBrain):
         """
         # get the reward from the last action
         r = reward[0]
+        self.reward = r
         o = self.previous_observations
         a = self.previous_action
 
@@ -170,6 +171,7 @@ class MyTabularRLAgent(AgentBrain):
 
         # Update the Q value
         Q_old = self.predict(o, a)
+        self.last_prediction = Q_old
         q = self.update(o, a, Q_old + self.alpha * (r - Q_old) )
         return True
 

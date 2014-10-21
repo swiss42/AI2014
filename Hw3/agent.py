@@ -249,10 +249,10 @@ class MyTilingRLAgent(MyTabularRLAgent):
             if self.in_grid(next_tile):
 
                 # check if there is a wall between
-                if (not ((cur_tile, next_tile) in get_environment().maze.walls)):
+                if not self.is_tuple_in_walls((cur_tile, next_tile)):
                     actions.append(a)
 
-        print "Possible actions: ", actions
+        #print "Possible actions: ", actions
 
         return actions
 
@@ -291,10 +291,10 @@ class MyTilingRLAgent(MyTabularRLAgent):
             micro_state = self.micro_state_converter(observations)
             (r, c) = self.micro_to_tile_coordinates(micro_state)
             (ar,ac) = get_environment().maze.xy2rc(mx, my)
-            print "######### TEST ##########"
-            print "r: ", r, ", c: ", c
-            print "ar: ", ar, ", ac: ", ac
-            print "######### END ##########"
+            # print "######### TEST ##########"
+            # print "r: ", r, ", c: ", c
+            # print "ar: ", ar, ", ac: ", ac
+            # print "######### END ##########"
             assert (ar == r)
             assert (ac == c)
 
@@ -369,6 +369,12 @@ class MyTilingRLAgent(MyTabularRLAgent):
             return False
         return True
 
+    def is_tuple_in_walls (self, t):
+        walls = get_environment().maze.walls
+        t1 = (t[0], t[1])
+        t2 = (t[1], t[0])
+        return t1 in walls or t2 in walls
+
 
 class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     """
@@ -384,8 +390,8 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         """
         self.predictions = [0, 0, 0, 0]
         self.last_prediction = 0
-        self.weights = [{},{},{},{}]
-        self.last_weights = {}
+        #self.weights = [{},{},{},{}]
+        #self.last_weights = {}
         MyTilingRLAgent.__init__(self, gamma, alpha, epsilon) # initialize the superclass
 
     def get_epsilon_greedy(self, observations, max_action = None, max_value = None):
@@ -396,18 +402,18 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         if random.random() < self.epsilon: # epsilon of the time, act randomly
             action = random.choice(actions)
             self.last_prediction = self.predictions[action]
-            self.last_weights = self.weights[action]
+            #self.last_weights = self.weights[action]
             return action
         elif max_action is not None and max_value is not None:
             # we already know the max action
             self.last_prediction = self.predictions[max_action]
-            self.last_weights = self.weights[max_action]
+            #self.last_weights = self.weights[max_action]
             return max_action
         else:
             # we need to get the max action
             (max_action, max_value) = self.get_max_action(observations)
             self.last_prediction = self.predictions[max_action]
-            self.last_weights = self.weights[max_action]
+            #self.last_weights = self.weights[max_action]
             return max_action
 
     def predict(self, observations, action):
@@ -416,7 +422,9 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         micro_state = self.micro_state_converter(observations)
 
         # predict the utility of the reulstant state after taking the given action
+        print "##########   Predict   ###########"
         prediction = self.calculate_micro_state_value(micro_state, action)
+        print "########## End Predict ###########"
 
         # save prediction so we can use it next iteration in out our update method
         self.predictions[action] = prediction
@@ -424,39 +432,40 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         return prediction
 
     def update(self, observations, action, new_value):
-
+        print "##########   Update   ###########"
         last_micro_state = self.micro_state_converter(observations)
         cur_micro_state = self.apply_action_to_micro_state(last_micro_state, action)
 
-        # update closest tiles
-        closest_tiles = self.get_closest_tiles(cur_micro_state)
-        for tile in closest_tiles:
-            self.update_tile_value(observations, cur_micro_state, tile)
-
-        self.print_tile_values()
-
-    def update_tile_value(self, cur_observations, cur_micro_state, tile):
-
         # get list of possible actions
-        possible_actions = self.get_possible_actions(cur_observations)
+        possible_actions = self.get_possible_actions(observations)
+        print "### Possible Actions: ", possible_actions
 
         # # calculate micro nearby micro state values
         micro_state_values = []
         for a in possible_actions:
-             micro_state_values.append(self.calculate_micro_state_value(cur_micro_state, a))
+            micro_state_values.append(self.calculate_micro_state_value(cur_micro_state, a))
+        max_micro_state_value = max(micro_state_values)
+
+        # update closest tiles
+        closest_tiles = self.get_closest_tiles(cur_micro_state)
+        for tile in closest_tiles:
+            tile_weight = self.calculate_weight(tile, closest_tiles)
+            self.update_tile_value(tile, max_micro_state_value, tile_weight)
+
+        self.print_tile_values()
+        print "########## End Update ###########"
+
+    def update_tile_value(self, tile, max_micro_state_value, tile_weight):
 
         # # get needed other values
-        if len(self.last_weights) > 0:
-             tile_weight = self.last_weights[tile]
-        else:
-             tile_weight = 0
+        print "##### tile_weight: ", tile_weight
         tile_value = self.get_value_of_tile(tile)
         reward = self.reward
         alpha = self.alpha 
         gamma = self.gamma
 
         # # calculate new update value
-        new_value = tile_value + alpha * tile_weight * (reward + gamma * max(micro_state_values) - self.last_prediction)
+        new_value = tile_value + alpha * tile_weight * (reward + gamma * max_micro_state_value - self.last_prediction)
         self.set_value_of_tile(tile, new_value)
 
     def calculate_distance(self, tile, cur_micro_state):
@@ -470,7 +479,7 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         # return distance
         return (((tile_x - micro_x) ** 2) + ((tile_y - micro_y) ** 2)) ** 0.5
 
-    def calculate_weight(self, tile, distances, action):
+    def calculate_weight(self, tile, distances, action = 4):
         
         # distances is a map of 2 or 3 distances (mapped to tiles)
         # get sum of distances
@@ -482,7 +491,7 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         weight = 1 - (distances[tile] / distances_sum) # BUG HERE
 
         # save weight so we can use in next iterations update method
-        self.weights[action][tile] = weight 
+        #self.weights[action][tile] = weight 
 
         return weight
 
@@ -512,37 +521,41 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
     def get_closest_tiles(self, cur_micro_state):
 
         # get current tile row and column from current micro state
-        (cur_r, cur_c) = self.micro_to_tile_coordinates(cur_micro_state)
+        cur_tile = (cur_tile_r, cur_tile_c) = self.micro_to_tile_coordinates(cur_micro_state)
 
         # create dictionary for closest tiles with their distances
+        # and put the tile that we are in in it
         closest_tiles = {}
-        temp = []
-        closest_tiles[(cur_r, cur_c)] = d = self.calculate_distance((cur_r, cur_c), cur_micro_state)
-        temp.append((cur_r, cur_c, d))
+        dist = self.calculate_distance(cur_tile, cur_micro_state) # NOT PROVED (I think this works)
+        closest_tiles[cur_tile] = dist
 
-        # get short list of clostest tiles
-        candidate_tiles = self.inbounds_and_not_blocked((cur_r, cur_c))
+        # get short list of clostest tiles that are reachable
+        candidate_tiles = self.inbounds_and_not_blocked(cur_tile) # NOT PROVED
+        print "!!!!### cand tiels: ", candidate_tiles
 
         # calculate distances of tiles in candidate list
+        temp = []
         for (r,c) in candidate_tiles:
             dist = self.calculate_distance((r, c), cur_micro_state)
             temp.append((r,c,dist))
 
         # get clostest tiles from candiate list
+        # will this case ever happen???
         if len(temp) == 1:
-            (r,c,d) = temp.index(0)
+            (r,c,d) = temp[0]
             closest_tiles[(r, c)] = d
-            print "### Closest Tiles1", closest_tiles
+            print "## Closest Tiles1", closest_tiles
             return closest_tiles
 
         # sort list by distances and pop the two items with shortest distance, add them to clostest tiles.
+        assert (len(temp) > 1)
         temp.sort(key = lambda tup: tup[2])
-        (r, c, d) = temp.pop()
+        (r, c, d) = temp[0]
         closest_tiles[(r, c)] = d 
-        (r, c, d) = temp.pop()
+        (r, c, d) = temp[1]
         closest_tiles[(r, c)] = d
 
-        print "### Closest Tiles2", closest_tiles
+        print "## Closest Tiles2", closest_tiles
 
         return closest_tiles
 
@@ -555,49 +568,51 @@ class MyNearestNeighborsRLAgent(MyTilingRLAgent):
         walls = get_environment().maze.walls
 
         # test diagonals
-        if self.in_grid((x + 1, y + 1)):
-            if (not(((x+1, y+1), (x, y+1)) in walls) and 
-                not(((x, y+1), (x, y)) in walls) or
-                not(((x+1, y+1), (x+1, y)) in walls) and
-                not(((x + 1, y), (x, y)) in walls)):
+        if self.in_grid((x+1, y+1)):
+            if (not(self.is_tuple_in_walls(((x+1, y+1), (x, y+1)))) and 
+                not(self.is_tuple_in_walls(((x, y+1)  , (x, y)))) or
+                not(self.is_tuple_in_walls(((x+1, y+1), (x+1, y)))) and
+                not(self.is_tuple_in_walls(((x + 1, y), (x, y))))):
                     candidates.append((x+1, y+1))
-        if self.in_grid((x - 1, y + 1)):
-            if (not(((x-1, y+1), (x, y+1)) in walls) and
-                not(((x, y+1), (x, y)) in walls) or 
-                not(((x-1, y+1), (x-1, y)) in walls) and
-                not(((x - 1, y), (x, y)) in walls)):
+        if self.in_grid((x-1, y+1)):
+            if (not(self.is_tuple_in_walls(((x-1, y+1), (x, y+1)))) and
+                not(self.is_tuple_in_walls(((x, y+1)  , (x, y)))) or 
+                not(self.is_tuple_in_walls(((x-1, y+1), (x-1, y)))) and
+                not(self.is_tuple_in_walls(((x - 1, y), (x, y))))):
                     candidates.append((x-1, y+1))
-        if self.in_grid((x - 1, y - 1)):
-            if (not(((x-1, y-1), (x, y-1)) in walls) and
-                not(((x, y-1), (x, y)) in walls) or 
-                not(((x-1, y-1), (x-1, y)) in walls) and
-                not(((x-1, y), (x, y)) in walls)):
+        if self.in_grid((x-1, y-1)):
+            if (not(self.is_tuple_in_walls(((x-1, y-1), (x, y-1)))) and
+                not(self.is_tuple_in_walls(((x, y-1)  , (x, y)))) or 
+                not(self.is_tuple_in_walls(((x-1, y-1), (x-1, y)))) and
+                not(self.is_tuple_in_walls(((x-1, y)  , (x, y))))):
                     candidates.append((x-1, y-1))
-        if self.in_grid((x + 1, y - 1)):
-            if (not(((x+1, y-1), (x, y-1)) in walls) and
-                not(((x, y-1), (x, y)) in walls) or 
-                not(((x+1, y-1), (x+1, y)) in walls) and
-                not(((x + 1, y), (x, y)) in walls)):
+        if self.in_grid((x+1, y-1)):
+            if (not(self.is_tuple_in_walls(((x+1, y-1), (x, y-1)))) and
+                not(self.is_tuple_in_walls(((x, y-1)  , (x, y)))) or 
+                not(self.is_tuple_in_walls(((x+1, y-1), (x+1, y)))) and
+                not(self.is_tuple_in_walls(((x + 1, y), (x, y))))):
                     candidates.append((x+1, y-1))
 
         # test others
         if self.in_grid((x, y+1)):
-            if not(((x, y+1), (x, y)) in walls):
+            if not(self.is_tuple_in_walls(((x, y+1), (x, y)))):
                 candidates.append((x, y+1))
 
         if self.in_grid((x, y-1)):
-            if not(((x, y-1), (x, y)) in walls):
+            if not(self.is_tuple_in_walls(((x, y-1), (x, y)))):
                 candidates.append((x, y-1))
 
         if self.in_grid((x+1, y)):
-            if not(((x+1, y), (x, y)) in walls):
+            if not(self.is_tuple_in_walls(((x+1, y), (x, y)))):
                 candidates.append((x+1, y))
 
         if self.in_grid((x-1, y)):
-            if not(((x-1, y), (x, y)) in walls):
+            if not(self.is_tuple_in_walls(((x-1, y), (x, y)))):
                 candidates.append((x-1, y))
 
         return candidates
+
+
 
 
 

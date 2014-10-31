@@ -14,6 +14,24 @@ class ObjectClassifier():
     the result is displayed on top of the four-image panel.
     """
     def classify(self, edge_pixels, orientations):
+        #This will use a file that we generate in the trainer
+
+        #(np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Steve/Steve2.png")
+        #(np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Cube/Cube2.png")
+        a = 0
+        b = ""
+        edge_pixel_count = 0
+        for x in range(600):
+            a+=1
+            b = "Row" + str(a)
+            for y in range(800):
+                if edge_pixels[x, y] > 105 and x > 230: # and orientations[x, y] in (0, 180, 270, 90):
+                    edge_pixel_count += 1
+                #b = b +"," + str(np_edges[x,y])
+        if edge_pixel_count < 3000:
+            return self.labels[3]
+
+        print "count: " + str(edge_pixel_count)
         return random.choice(self.labels)
     
     """
@@ -23,7 +41,45 @@ class ObjectClassifier():
     reading in each image from your datasets.
     """
     def train(self):
-        pass
+        #Generate a file using the numpy object
+
+        stats_array = np.empty([4, 5])
+        #Feature 1   2   3   4   5
+        #Steve  :
+        #Sydney :
+        #Tree   :
+        #Cube   :
+        #(np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Sydney/Sydney1.png")
+        #(np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Steve/Steve6.png")
+        #(np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Cube/Cube2.png")
+        # (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Tree/Tree2.png")
+        # a = 0
+        # b = ""
+        # edge_pixels = 0
+        # total_edges = 0
+        # for x in range(600):
+        #     a+=1
+        #     b = "Row" + str(a)
+        #     for y in range(800):
+        #         if np_edges[x,y] > 105:
+        #             edge_pixels +=1
+
+        #         b = b +"," + str(np_edges[x,y])
+        #     print b
+        # print "The edge pix!: " + str(edge_pixels)
+
+
+########################Actual Train Method################################
+
+        for x in range(1, 11):
+            (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Cube/Cube" + str(x) + ".png")
+            print feature_identifier(np_edges, orientations)
+
+
+
+                
+
+        
         
 """
 Loads an image from file and calculates the edge pixel orientations.
@@ -83,3 +139,62 @@ Finds the (approximate) orientation of an edge pixel.
 def find_orientation(upper_left, upper_center, upper_right, mid_left, mid_right, lower_left, lower_center, lower_right):
     a = np.array([upper_center, upper_left, upper_right, mid_left, mid_right, lower_left, lower_center, lower_right])
     return np_orientation[a.argmax()]
+
+
+#Return a tuble where each value coresponds to a feature, boolean values
+def feature_identifier( np_edges, orientations):
+    #features
+    (f1,f2,f3,f4,f5) = (False, False, False, False, False)
+
+
+    #edge pictures in entire image
+    edge_pixel_count = 0
+
+    ##########Feature 1##############
+    #Number of edge pixles in the bottom 2/3 of the screen is greater than 3000
+    #The cube doesnt contribute many edge pixels so this should help find it
+    f1_count = 0
+    ##########Feature 2##############
+    #Taken from the assignment, count upward facing pixels in the upper half of he image
+    #should be useful in identifying the tree
+    f2_count = 0
+    ##########Feature 3##############
+    #This keeps track of the total amount of edge pixels, the cube has under 10K for all the pics
+    f3_count = 0
+
+    for x in range(600):
+        for y in range(800):
+            #Only evaluate edge pixels
+            if np_edges[x, y] > 105:
+                edge_pixel_count += 1
+                if x > 230: 
+                    f1_count += 1
+                if orientations[x,y] in (315, 0, 45) and x < 300:
+                    f2_count += 1
+
+    
+    if f1_count < 3000:
+        f1 = True
+    
+    if f2_count > 2500:
+        f2 = True
+
+    if f3_count < 10000:
+        pass
+
+
+    print "f1_count: " + str(f1_count)
+    print "Total_edges: " + str(edge_pixel_count)
+
+    return (f1,f2,f3,f4,f5)
+
+
+
+
+
+
+
+
+if __name__ == "__main__":
+    o = ObjectClassifier()
+    o.train()

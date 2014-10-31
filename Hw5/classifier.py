@@ -16,23 +16,7 @@ class ObjectClassifier():
     def classify(self, edge_pixels, orientations):
         #This will use a file that we generate in the trainer
 
-        #(np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Steve/Steve2.png")
-        #(np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Cube/Cube2.png")
-        a = 0
-        b = ""
-        edge_pixel_count = 0
-        for x in range(600):
-            a+=1
-            b = "Row" + str(a)
-            for y in range(800):
-                if edge_pixels[x, y] > 105 and x > 230: # and orientations[x, y] in (0, 180, 270, 90):
-                    edge_pixel_count += 1
-                #b = b +"," + str(np_edges[x,y])
-        if edge_pixel_count < 3000:
-            return self.labels[3]
-
-        print "count: " + str(edge_pixel_count)
-        return random.choice(self.labels)
+        features = np.load()
     
     """
     This is your training method. Feel free to change the
@@ -43,7 +27,7 @@ class ObjectClassifier():
     def train(self):
         #Generate a file using the numpy object
 
-        stats_array = np.empty([4, 5])
+        stats_array = np.zeros([4, 5])
         #Feature 1   2   3   4   5
         #Steve  :
         #Sydney :
@@ -70,10 +54,52 @@ class ObjectClassifier():
 
 
 ########################Actual Train Method################################
+        a_object = 0
+        for thing in self.labels:
+            print thing
+            (f1,f2,f3,f4,f5) = (False, False, False, False, False)
+            (a,b,c,d,e) = (0,0,0,0,0) #used to count occurances of each feature per image set
+            for count in range(1, 11):
+                (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/" + thing + "/" + thing + str(count) + ".png")
+                (f1,f2,f3,f4,f5) = feature_identifier(np_edges, orientations)
+                if f1:
+                    a+=1
+                if f2:
+                    b+=1
+                if f3:
+                    c+=1
+                if f4:
+                    d+=1
+                if f5:
+                    e+=1
+                a_feature = 0
+            for x in (a,b,c,d, e):
+                stats_array[a_object, a_feature] = (x / 10.0)
+                a_feature += 1
 
-        for x in range(1, 11):
-            (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Cube/Cube" + str(x) + ".png")
-            print feature_identifier(np_edges, orientations)
+            a_object += 1
+
+
+
+
+
+
+
+
+        # for x in range(1, 11):
+        #     (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Tree/Tree" + str(x) + ".png")
+            
+        # for x in range(1, 11):
+        #     (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Sydney/Sydney" + str(x) + ".png")
+        #     print feature_identifier(np_edges, orientations)
+        # for x in range(1, 11):
+        #     (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Steve/Steve" + str(x) + ".png")
+        #     print feature_identifier(np_edges, orientations)
+        # for x in range(1, 11):
+        #     (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Cube/Cube" + str(x) + ".png")
+        #     print feature_identifier(np_edges, orientations)
+
+        print stats_array
 
 
 
@@ -161,6 +187,13 @@ def feature_identifier( np_edges, orientations):
     ##########Feature 3##############
     #This keeps track of the total amount of edge pixels, the cube has under 10K for all the pics
     f3_count = 0
+    ##########Feature 4##############
+    #Idealy sydney will be the one with the verticle lines...nope turns out that's Steve
+    #steve has a lot of verticle lines on the bottom half of the picture
+    f4_count = 0
+    ##########Feature 5##############
+    #trying does the robot have a lot of horizontal edges?
+    f5_count = 0
 
     for x in range(600):
         for y in range(800):
@@ -171,20 +204,36 @@ def feature_identifier( np_edges, orientations):
                     f1_count += 1
                 if orientations[x,y] in (315, 0, 45) and x < 300:
                     f2_count += 1
+                if orientations[x,y] in (0, 180) and x > 300:
+                    f4_count += 1
+                if orientations[x,y] in (90, 270) and x > 230:
+                    f5_count += 1
 
-    
+    f3_count = edge_pixel_count
+
     if f1_count < 3000:
         f1 = True
     
     if f2_count > 2500:
         f2 = True
 
-    if f3_count < 10000:
-        pass
+    if f3_count < 8000:
+        f3 = True
+
+    if f4_count > 1000:
+        f4 = True
+
+    if f5_count > 2200:
+        f5 = True
 
 
+    print "********"
     print "f1_count: " + str(f1_count)
-    print "Total_edges: " + str(edge_pixel_count)
+    print "f2_count: " + str(f2_count)
+    print "f3_count: " + str(f3_count)
+    print "f4_count: " + str(f4_count)
+    print "f5_count: " + str(f5_count)
+
 
     return (f1,f2,f3,f4,f5)
 

@@ -14,9 +14,31 @@ class ObjectClassifier():
     the result is displayed on top of the four-image panel.
     """
     def classify(self, edge_pixels, orientations):
-        #This will use a file that we generate in the trainer
+        #Analyse the current picture
+        (f1,f2,f3,f4,f5) = feature_identifier(edge_pixels, orientations)
 
-        features = np.load()
+        features_percentages = np.load("Stats")
+
+        (Tree, Steve, Sydney, Cube) = (0, 0, 0, 0)
+        
+        row = 0 #selects a character
+        col = 0 #selects a feature
+        for character in (Tree, Steve, Sydney, Cube):
+            for feature in (f1,f2,f3,f4,f5):
+                if feature:
+                    character *= features_percentages[row,col]
+                    col += 1
+            row += 1
+
+        cur_max = 0
+        character_index = 0
+        winner_index = 0
+        for character in (Tree, Steve, Sydney, Cube):
+            if character > cur_max:
+                cur_max = character
+                winner_index = character_index
+            character_index += 1
+        return labels.pop(winner_index)
     
     """
     This is your training method. Feel free to change the
@@ -79,12 +101,7 @@ class ObjectClassifier():
 
             a_object += 1
 
-
-
-
-
-
-
+        np.save("Stats", stats_array)
 
         # for x in range(1, 11):
         #     (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Tree/Tree" + str(x) + ".png")

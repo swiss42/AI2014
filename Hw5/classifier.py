@@ -223,11 +223,11 @@ def feature_identifier( np_edges, orientations):
     f4_count = 0
 
     ##########Feature 5##############
-    #trying does the robot have a lot of horizontal edges?
+    #Horizonal edges
     f5_count = 0
 
     ##########Feature 6##############
-    #Steve may have more slanted lines
+    #count angled lines, steve is very angular
     f6_count = 0
 
     ##########Feature 7##############
@@ -241,7 +241,7 @@ def feature_identifier( np_edges, orientations):
             #Only evaluate edge pixels
             if np_edges[x, y] > 105:
                 edge_pixel_count += 1
-                if x > 230: 
+                if x > 300 and orientations[x,y] in (270, 90, 315, 45): 
                     f1_count += 1
                 if orientations[x,y] in (315, 0, 45) and x < 300:
                     f2_count += 1
@@ -251,6 +251,8 @@ def feature_identifier( np_edges, orientations):
                     f5_count += 1
                 if orientations[x, y] in (315, 45, 135, 225) and x > 220:
                     f6_count += 1
+                    
+                #Next two counts used for feature three
                 if orientations[x, y] == 0 and x > 220:
                     up += 1
                 if orientations[x, y] == 180 and x > 220:
@@ -258,7 +260,7 @@ def feature_identifier( np_edges, orientations):
 
     f3_count = edge_pixel_count #feature 3 is total amount of edge_pixels
 
-    if f1_count < 3000:
+    if f1_count < 1000:
         f1 = True
     
     if f2_count > 2500:

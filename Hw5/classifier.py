@@ -17,10 +17,11 @@ class ObjectClassifier():
         #Analyse the current picture
         (f1,f2,f3,f4,f5,f6,f7) = feature_identifier(edge_pixels, orientations)
 
+        ###############################This needs to be the path to the stats.npy file###########################
         features_percentages = np.load("Hw5/Stats.npy")
-        print "the feature percentages"
-        print features_percentages
-        print (f1,f2,f3,f4,f5,f6,f7)
+        # print "the feature percentages"
+        # print features_percentages
+        # print (f1,f2,f3,f4,f5,f6,f7)
 
         subjects = {'Tree': 1, 'Sydney': 1, 'Steve': 1, 'Cube': 1}
         
@@ -30,7 +31,7 @@ class ObjectClassifier():
             col = 0
             for feature in (f1,f2,f3,f4,f5,f6,f7):
                 if feature:
-                    print "Character being altered with " + str(features_percentages[row,col])
+                    # print "Character being altered with " + str(features_percentages[row,col])
                     subjects[character] *= features_percentages[row,col]
                 col += 1
             row += 1
@@ -39,12 +40,12 @@ class ObjectClassifier():
         character_index = 0
         winner_index = 0
         for character in subjects:
-            print "character value: " + str(subjects[character])
+            # print "character value: " + str(subjects[character])
             if subjects[character] > cur_max:
                 cur_max = subjects[character]
                 winner_index = character_index
             character_index += 1
-        return self.labels.pop(winner_index)
+        return self.labels[winner_index]
     
     """
     This is your training method. Feel free to change the
@@ -84,7 +85,7 @@ class ObjectClassifier():
 ########################Actual Train Method################################
         a_object = 0
         for thing in self.labels:
-            print thing
+            print thing + "######################################"
             (f1,f2,f3,f4,f5,f6,f7) = (False, False, False, False, False, False, False)
             (a,b,c,d,e,f,g) = (0,0,0,0,0,0,0) #used to count occurances of each feature per image set
             for count in range(1, 11):
@@ -113,20 +114,23 @@ class ObjectClassifier():
 
         np.save("Stats", stats_array)
 
-        # for x in range(1, 11):
-        #     (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Tree/Tree" + str(x) + ".png")
-            
-        # for x in range(1, 11):
-        #     (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Sydney/Sydney" + str(x) + ".png")
-        #     print feature_identifier(np_edges, orientations)
-        # for x in range(1, 11):
-        #     (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Steve/Steve" + str(x) + ".png")
-        #     print feature_identifier(np_edges, orientations)
-        # for x in range(1, 11):
-        #     (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/Cube/Cube" + str(x) + ".png")
-        #     print feature_identifier(np_edges, orientations)
 
         print stats_array
+
+    def pic_helper(self):
+        subjects = {'Tree': 0, 'Sydney': 0, 'Steve': 0, 'Cube': 0}
+        for thing in subjects:
+            # print "Im here: " + thing
+            for count in range(1, 6):
+                # (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Training/" + thing + "/" + thing + str(count) + ".png")
+                (np_edges, orientations) = load_image("/home/blake/AI2014/Hw5/snapshots/Validation/" + thing + "/" + str(count) + ".png")
+                idenifying_as = self.classify(np_edges, orientations)
+                # print "I think this is " + idenifying_as
+                if (idenifying_as != thing):
+                    print thing + "Pic: " + str(count) + "Incorrectly identified as " + idenifying_as
+                    subjects[thing] += 1
+        for thing in subjects:
+            print thing + " number incorrect: " + str(subjects[thing]) + "/10"
 
 
 
@@ -195,7 +199,7 @@ def find_orientation(upper_left, upper_center, upper_right, mid_left, mid_right,
 
 
 #Return a tuble where each value coresponds to a feature, boolean values
-def feature_identifier( np_edges, orientations):
+def feature_identifier(np_edges, orientations):
     #features
     (f1,f2,f3,f4,f5,f6,f7) = (False, False, False, False, False, False, False)
 
@@ -251,7 +255,7 @@ def feature_identifier( np_edges, orientations):
                     f5_count += 1
                 if orientations[x, y] in (315, 45, 135, 225) and x > 220:
                     f6_count += 1
-                    
+
                 #Next two counts used for feature three
                 if orientations[x, y] == 0 and x > 220:
                     up += 1
@@ -282,15 +286,15 @@ def feature_identifier( np_edges, orientations):
         f7 = True
 
 
-    print "********"
-    print "f1_count: " + str(f1_count)
-    print "f2_count: " + str(f2_count)
-    print "f3_count: " + str(f3_count)
-    print "f4_count: " + str(f4_count)
-    print "f5_count: " + str(f5_count)
-    print "f6_count: " + str(f6_count)
-    print "up: " + str(up)
-    print "down: " + str(down)
+    # print "********"
+    # print "f1_count: " + str(f1_count)
+    # print "f2_count: " + str(f2_count)
+    # print "f3_count: " + str(f3_count)
+    # print "f4_count: " + str(f4_count)
+    # print "f5_count: " + str(f5_count)
+    # print "f6_count: " + str(f6_count)
+    # print "up: " + str(up)
+    # print "down: " + str(down)
 
 
     return (f1,f2,f3,f4,f5,f6,f7)
@@ -299,7 +303,6 @@ def feature_identifier( np_edges, orientations):
 
 
 
-
 if __name__ == "__main__":
     o = ObjectClassifier()
-    o.train()
+    o.pic_helper()

@@ -1,4 +1,5 @@
 import sys
+import random
 import tempfile
 
 import constants
@@ -24,6 +25,8 @@ class NeroAgent(object):
         # actions
         abound.add_continuous(-1, 1) # forward/backward speed
         abound.add_continuous(-constants.MAX_TURNING_RATE, constants.MAX_TURNING_RATE) # left/right turn (in radians)
+        abound.add_continuous(0, 1) # fire 
+        abound.add_continuous(0, 1) # omit friend sensors 
 
         # sensor dimensions
         for a in range(constants.N_SENSORS):
@@ -171,6 +174,7 @@ class RTNEATAgent(NeroAgent, OpenNero.AgentBrain):
         # AgentBrainPtr by C++
         OpenNero.AgentBrain.__init__(self)
         NeroAgent.__init__(self)
+        self.omit_friend_sensors = False
 
     def get_org(self):
         """
@@ -268,6 +272,10 @@ class RTNEATAgent(NeroAgent, OpenNero.AgentBrain):
         org = self.get_org()
         org.time_alive += 1
 
+        if self.omit_friend_sensors:
+            for idx in constants.SENSOR_INDEX_FRIEND_RADAR:
+                sensors[idx] = 0
+        
         org.net.load_sensors(
             list(self.sensors.normalize(sensors)) + [constants.NEAT_BIAS])
         org.net.activate()
@@ -276,7 +284,16 @@ class RTNEATAgent(NeroAgent, OpenNero.AgentBrain):
         actions = self.actions.get_instance()
         for i in range(len(self.actions.get_instance())):
              actions[i] = outputs[i]
-        return self.actions.denormalize(actions)
+        #disabling firing for testing...
+        #actions[constants.ACTION_INDEX_FIRE] = 0
+        denormalized_actions = self.actions.denormalize(actions)
+
+        if denormalized_actions[constants.ACTION_INDEX_ZERO_FRIEND_SENSORS] > 0.5:
+            self.omit_friend_sensors = True
+        else:
+            self.omit_friend_sensors = False
+
+        return denormalized_actions
 
     def evaluate_trace(self):
         """
@@ -398,13 +415,15 @@ class Turret(NeroAgent, OpenNero.AgentBrain):
     def start(self, time, sensors):
         self.state.label = 'Turret'
         a = self.actions.get_instance()
-        a[0] = a[1] = 0
+        a[0] = a[1] = a[2] = a[3] = 0
         return a
 
     def act(self, time, sensors, reward):
         a = self.actions.get_instance()
         a[0] = 0
         a[1] = 0.1
+        a[2] = 1 
+        a[3] = 0
         return a
 
 

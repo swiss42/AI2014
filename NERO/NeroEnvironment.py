@@ -168,7 +168,8 @@ class NeroEnvironment(OpenNero.Environment):
         """
         for a in constants.WALL_RAY_SENSORS:
             agent.add_sensor(OpenNero.RaySensor(
-                    math.cos(math.radians(a)), math.sin(math.radians(a)), 0, 50,
+                    math.cos(math.radians(a)), math.sin(math.radians(a)), 0,
+                    constants.WALL_SENSOR_RADIUS,
                     constants.OBJECT_TYPE_OBSTACLE,
                     False))
         for a0, a1 in constants.FLAG_RADAR_SENSORS:
@@ -176,14 +177,21 @@ class NeroEnvironment(OpenNero.Environment):
                     a0, a1, -90, 90, constants.MAX_VISION_RADIUS,
                     constants.OBJECT_TYPE_FLAG,
                     False))
+        sense = constants.OBJECT_TYPE_TEAM_0
+        if agent.get_team() == sense:
+            sense = constants.OBJECT_TYPE_TEAM_1
         for a0, a1 in constants.ENEMY_RADAR_SENSORS:
-            sense = constants.OBJECT_TYPE_TEAM_0
-            if agent.get_team() == sense:
-                sense = constants.OBJECT_TYPE_TEAM_1
             agent.add_sensor(OpenNero.RadarSensor(
                     a0, a1, -90, 90, constants.MAX_VISION_RADIUS,
                     sense,
                     False))
+        for a in constants.TARGETING_SENSORS:
+            agent.add_sensor(OpenNero.RaySensor(
+                    math.cos(math.radians(a)), math.sin(math.radians(a)), 0,
+                    constants.TARGET_SENSOR_RADIUS,
+                    sense,
+                    False))
+
         return agent.info
 
     def get_state(self, agent):
@@ -225,6 +233,38 @@ class NeroEnvironment(OpenNero.Environment):
                     min_f = f
                     min_v = v
         return min_f
+
+    def closest_enemy(self, agent):
+        """
+        Returns the nearest enemy to agent 
+        """
+        friends, foes = self.getFriendFoe(agent)
+        if not foes:
+            return None
+
+        min_enemy = None
+        min_dist = constants.MAX_FIRE_ACTION_RADIUS
+        pose = self.get_state(agent).pose
+        color = OpenNero.Color(128, 0, 0, 0)
+        for f in foes:
+            f_pose = self.get_state(f).pose
+            dist = self.distance(pose, f_pose)
+            if dist < min_dist:
+                source_pos = agent.state.position
+                target_pos = f.state.position
+                source_pos.z = source_pos.z + 5
+                target_pos.z = target_pos.z + 5
+                obstacles = OpenNero.getSimContext().findInRay(
+                    source_pos,
+                    target_pos,
+                    constants.OBJECT_TYPE_OBSTACLE,
+                    False,
+                    color,
+                    color)
+                if len(obstacles) == 0:
+                    min_enemy = f
+                    min_dist = dist
+        return min_enemy
 
     def step(self, agent, action):
         """
@@ -280,8 +320,49 @@ class NeroEnvironment(OpenNero.Environment):
         self.maybe_spawn(agent)
 
         # get the desired action of the agent
-        move_by = action[0]
-        turn_by = math.degrees(action[1])
+        move_by = action[constants.ACTION_INDEX_SPEED]
+        turn_by = math.degrees(action[constants.ACTION_INDEX_TURN])
+        firing = action[constants.ACTION_INDEX_FIRE]
+        firing_status = (firing >= 0.5)
+
+        scored_hit = False
+        # firing decision
+        if firing_status:
+            target = self.closest_enemy(agent)
+            if target is not None:
+                pose = state.pose
+                target_pose = self.get_state(target).pose
+                relative_angle = self.angle(pose, target_pose)
+                if abs(relative_angle) <= 2:
+                    source_pos = agent.state.position
+                    target_pos = target.state.position
+                    source_pos.z = source_pos.z + 5
+                    target_pos.z = target_pos.z + 5
+                    dist = target_pos.getDistanceFrom(source_pos)
+                    d = (constants.MAX_SHOT_RADIUS - dist)/constants.MAX_SHOT_RADIUS
+                    if random.random() < d/2: # attempt a shot depending on distance
+                        team_color = constants.TEAM_LABELS[agent.get_team()]
+                        if team_color == 'red':
+                            color = OpenNero.Color(255, 255, 0, 0)
+                        elif team_color == 'blue':
+                            color = OpenNero.Color(255, 0, 0, 255)
+                        else:
+                            color = OpenNero.Color(255, 255, 255, 0)
+                        wall_color = OpenNero.Color(128, 0, 255, 0)
+                        obstacles = OpenNero.getSimContext().findInRay(
+                            source_pos,
+                            target_pos,
+                            constants.OBJECT_TYPE_OBSTACLE,
+                            True,
+                            wall_color,
+                            color)
+                        #if len(obstacles) == 0 and random.random() < d/2:
+                        if len(obstacles) == 0:
+                            # count as hit depending on distance
+                            self.get_state(target).curr_damage += 1
+                            scored_hit = True
+                else: # turn toward the enemy
+                    turn_by = relative_angle
 
         # set animation speed
         # TODO: move constants into constants.py
@@ -289,14 +370,14 @@ class NeroEnvironment(OpenNero.Environment):
         delay = OpenNero.getSimContext().delay
         agent.state.animation_speed = move_by * constants.ANIMATION_RATE
 
-        reward = self.calculate_reward(agent, action)
+        reward = self.calculate_reward(agent, action, scored_hit)
 
         # tell the system to make the calculated motion
         state.update_pose(move_by, turn_by)
 
         return reward
 
-    def calculate_reward(self, agent, action):
+    def calculate_reward(self, agent, action, scored_hit = False):
         reward = agent.info.reward.get_instance()
 
         state = self.get_state(agent)
@@ -324,34 +405,37 @@ class NeroEnvironment(OpenNero.Environment):
             d = self.distance(state.pose, (f.x, f.y))
             R[constants.FITNESS_APPROACH_FLAG] = -d * d
 
-        target = self.target(agent)
-        if target is not None:
-            source_pos = agent.state.position
-            target_pos = target.state.position
-            source_pos.z = source_pos.z + 5
-            target_pos.z = target_pos.z + 5
-            dist = target_pos.getDistanceFrom(source_pos)
-            d = (constants.MAX_SHOT_RADIUS - dist)/constants.MAX_SHOT_RADIUS
-            if random.random() < d/2: # attempt a shot depending on distance
-                team_color = constants.TEAM_LABELS[agent.get_team()]
-                if team_color == 'red':
-                    color = OpenNero.Color(255, 255, 0, 0)
-                elif team_color == 'blue':
-                    color = OpenNero.Color(255, 0, 0, 255)
-                else:
-                    color = OpenNero.Color(255, 255, 255, 0)
-                wall_color = OpenNero.Color(128, 0, 255, 0)
-                obstacles = OpenNero.getSimContext().findInRay(
-                    source_pos,
-                    target_pos,
-                    constants.OBJECT_TYPE_OBSTACLE,
-                    True,
-                    wall_color,
-                    color)
-                if len(obstacles) == 0 and random.random() < d/2:
-                    # count as hit depending on distance
-                    self.get_state(target).curr_damage += 1
-                    R[constants.FITNESS_HIT_TARGET] = 1
+#        target = self.target(agent)
+#        if target is not None:
+#            source_pos = agent.state.position
+#            target_pos = target.state.position
+#            source_pos.z = source_pos.z + 5
+#            target_pos.z = target_pos.z + 5
+#            dist = target_pos.getDistanceFrom(source_pos)
+#            d = (constants.MAX_SHOT_RADIUS - dist)/constants.MAX_SHOT_RADIUS
+#            if random.random() < d/2: # attempt a shot depending on distance
+#                team_color = constants.TEAM_LABELS[agent.get_team()]
+#                if team_color == 'red':
+#                    color = OpenNero.Color(255, 255, 0, 0)
+#                elif team_color == 'blue':
+#                    color = OpenNero.Color(255, 0, 0, 255)
+#                else:
+#                    color = OpenNero.Color(255, 255, 255, 0)
+#                wall_color = OpenNero.Color(128, 0, 255, 0)
+#                obstacles = OpenNero.getSimContext().findInRay(
+#                    source_pos,
+#                    target_pos,
+#                    constants.OBJECT_TYPE_OBSTACLE,
+#                    True,
+#                    wall_color,
+#                    color)
+#                if len(obstacles) == 0 and random.random() < d/2:
+#                    # count as hit depending on distance
+#                    self.get_state(target).curr_damage += 1
+#                    R[constants.FITNESS_HIT_TARGET] = 1
+
+        if scored_hit:
+            R[constants.FITNESS_HIT_TARGET] = 1
 
         damage = state.update_damage()
         R[constants.FITNESS_AVOID_FIRE] = -damage
@@ -388,20 +472,47 @@ class NeroEnvironment(OpenNero.Environment):
         figure out what the agent should sense
         """
         # the last observation is whether there is a target for the agent
-        observations[constants.SENSOR_INDEX_TARGETING[0]] = int(self.target(agent) is not None)
+        # update: this is now being done using a RaySensor
+        #observations[constants.SENSOR_INDEX_TARGETING[0]] = int(self.target(agent) is not None)
 
-        friends, foes = self.getFriendFoe(agent)
+#        friends, foes = self.getFriendFoe(agent)
+#        if friends:
+#            # the 2 before that are the angle and heading to the center of mass of
+#            # the agent's team
+#            ax, ay = agent.state.position.x, agent.state.position.y
+#            cx, cy = self.get_friend_center(agent, friends)
+#            fd = self.distance((ax, ay), (cx, cy))
+#            ah = agent.state.rotation.z
+#            fh = self.angle((ax, ay, ah), (cx, cy)) + 180.0
+#            if fd <= constants.MAX_FRIEND_DISTANCE:
+#                observations[constants.SENSOR_INDEX_FRIEND_RADAR[0]] = fd / 15.0
+#                observations[constants.SENSOR_INDEX_FRIEND_RADAR[1]] = fh / 360.0
 
-        if friends:
-            # the 2 before that are the angle and heading to the center of mass of
-            # the agent's team
-            ax, ay = agent.state.position.x, agent.state.position.y
-            cx, cy = self.get_friend_center(agent, friends)
-            fd = self.distance((ax, ay), (cx, cy))
-            ah = agent.state.rotation.z
-            fh = self.angle((ax, ay, ah), (cx, cy)) + 180.0
-            if fd <= constants.MAX_FRIEND_DISTANCE:
-                observations[constants.SENSOR_INDEX_FRIEND_RADAR[0]] = fd / 15.0
+
+        # The code above miscalculates the friend center by looking at all teammates
+        # instead of looking only inside the friend radius.
+        # Updated friend sensing code:
+        my_team = agent.get_team()
+        all_friends = self.teams[my_team] 
+
+        ax, ay = agent.state.position.x, agent.state.position.y
+        cx, cy = 0.0, 0.0
+        if all_friends:
+            n = 0
+            for f in all_friends:
+                fx, fy = f.state.position.x, f.state.position.y
+                if self.distance((ax, ay), (fx, fy)) <= constants.MAX_FRIEND_DISTANCE:
+                    n += 1
+                    cx += fx
+                    cy += fy
+            if n > 0:
+                cx, cy = cx / n, cy / n
+                fd = self.distance((ax, ay), (cx, cy))
+                ah = agent.state.rotation.z
+                fh = self.angle((ax, ay, ah), (cx, cy)) + 180.0
+                value = 1 - (fd / constants.MAX_FRIEND_DISTANCE)
+                value = max(0, min(value, 1))
+                observations[constants.SENSOR_INDEX_FRIEND_RADAR[0]] = value
                 observations[constants.SENSOR_INDEX_FRIEND_RADAR[1]] = fh / 360.0
 
         if self.tracing:

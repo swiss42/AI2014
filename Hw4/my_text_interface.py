@@ -72,17 +72,28 @@ class MyDialog:
         if (len(plan) == 0):
             return plan
 
+        # split plan into words
         plan = string.lower(plan)
         words = string.split(plan) # A list of the words in the user command
         result = plan # In case we cannot parse the plan propperly, return it unmodified
 
-        and_index = words.index("and") #and location
+        #check for and in words
+        try:
+            and_index = words.index("and") #and location
+        except ValueError:
+            and_index = -1
 
-        result = self.get_verb_phrase(words) + self.get_noun_phrases(words)
-
+        # parse
         if and_index >= 0:
+            #parse commpount
+            first_command = words[:and_index]
             second_command = words[and_index + 1:]
-            result += self.get_verb_phrase(second_command) + self.get_noun_phrases(words[and_index + 1:])
+            result = []
+            result.append(self.get_verb_phrase(first_command) + self.get_noun_phrases(first_command))
+            result.append(self.get_verb_phrase(second_command) + self.get_noun_phrases(second_command))
+        else:
+            #parse sigular
+            result = self.get_verb_phrase(words) + self.get_noun_phrases(words)
 
         return result
 

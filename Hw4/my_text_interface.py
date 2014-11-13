@@ -52,6 +52,9 @@ class MyDialog:
 
         self.parsed_plan = ""
 
+        #Used to store which disk 'it' is, probably used durring uses of AND...
+        self.it = ""
+
     def parse(self):
         if self.parsed_plan == "":
             self.value = self.e.get()
@@ -124,13 +127,45 @@ class MyDialog:
         finds the noun phrases by removing every word other than "disk*" or "pole*.
 		Does not check whether these are in the correct order."
         """
+        #for testing
+        #move disk1 from Pole1 to Pole2 and move it from Pole2 to Pole3
+        #Move Disk1 from Left Pole to Middle Pole
         result = ""
+
         #asssume that the noun phrases are in a fixed order
         #then just look for the keywords "disk" and "pole", ignoring everything elsee
+        index = 0
         for w in words:
             if "disk" in w or "pole" in w:
+                # self.log_info("######found a disk or pole")
+                #store our disk in 'it' to later refer to it if 'it' is used
+                if "disk" in w:
+                    # self.log_info("#####storing our dist in it: " + w)
+                    self.it = w
+
+                if "pole" in w:
+                    prev_word = words[index - 1]
+                    if prev_word == "left":
+                        w = "pole1"
+                    elif prev_word == "middle":
+                        w = "pole2"
+                    elif prev_word == "right":
+                        w = "pole3"
+
                 self.log_info("\"{0}\" found!".format(w))
                 result += w.title() + " "
+
+            if w == "it":
+                # self.log_info("########replacing it with actual disk name: " + self.it)
+                w = self.it
+                result += w.title() + " "
+            index += 1
+                
+
+            #if we used it in our syntax then we replace it with the actual disk name
+
+
+
         return result
 
     def ok(self):

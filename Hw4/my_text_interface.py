@@ -6,7 +6,7 @@ import Queue
 class MyDialog:
     def __init__(self, parent):
 
-        top = self.top = parent #tk.Toplevel(parent)
+        top = self.top = parent
 
         self.entry_frame = tk.Frame(parent)
         tk.Label(self.entry_frame, text="Please enter English sentence:").pack()
@@ -75,6 +75,10 @@ class MyDialog:
         if (len(plan) == 0):
             return plan
 
+        #init case 2 boolean
+        #this boolean is used to tell if we should do (VP1 NP1 NP4 NP3)
+        self.case2 = False
+
         # split plan into words
         plan = string.lower(plan)
         words = string.split(plan) # A list of the words in the user command
@@ -94,17 +98,18 @@ class MyDialog:
             result = []
             
             temp_command1 = self.get_verb_phrase(first_command) + self.get_noun_phrases(first_command)
-            #Modify string if we are in case 2 
+            temp_command1 = self.reorder_cmd_for_case_2(temp_command1)
             result.append(temp_command1)
 
             ###########################################################################################
 
             temp_command2 = self.get_verb_phrase(second_command) + self.get_noun_phrases(second_command)
-            #Modify string if we are in case 2 
+            temp_command2 = self.reorder_cmd_for_case_2(temp_command2)
             result.append(temp_command2)
         else:
             #parse sigular
-            result = self.get_verb_phrase(words) + self.get_noun_phrases(words)
+            temp_command = self.get_verb_phrase(words) + self.get_noun_phrases(words)
+            result = temp_command = self.reorder_cmd_for_case_2(temp_command)
 
         return result
 
@@ -116,7 +121,7 @@ class MyDialog:
         if words[0] == "mov" or words[0] == "move":
             self.log_info("Case VP1 NP1 NP3 NP4 (\"Move\") found")
             self.log_info("Identifying noun phrases...")
-            result = "Mov " 
+            result = "Mov "
             self.case2 = self.case_2_check(words)
         elif words[0] == "pick":
             self.log_info("Case VP2 NP1 NP3 (\"Move\") found.")
@@ -129,35 +134,45 @@ class MyDialog:
         else:
             self.log_error(words, "Instructions must begin with Move, Pick or Put.")
         return result
+
     def case_2_check(self, words):
+
+        # if two comes before from then we should do VP1 NP1 NP4 NP3
         for word in words:
             if word == "to":
                 return True
             if word == "from":
                 return False
-    
+
+    def reorder_cmd_for_case_2(self, cmd):
+
+        # VP1 NP1 NP3 NP4
+        if not self.case2:
+            return cmd
+
+        # VP1 NP1 NP4 NP3
+        words = string.split(cmd)
+        return words[0] + " " + words[1] + " " + words[3] + " " + words[2]
+
     def get_noun_phrases(self, words):
         """
         Helper method. Given a string representing a plan,
         finds the noun phrases by removing every word other than "disk*" or "pole*.
 		Does not check whether these are in the correct order."
         """
-        #for testing
-        #move disk1 from Pole1 to Pole2 and move it from Pole2 to Pole3
-        #Move Disk1 from Left Pole to Middle Pole
         result = ""
 
-        #asssume that the noun phrases are in a fixed order
+        #assume that the noun phrases are in a fixed order
         #then just look for the keywords "disk" and "pole", ignoring everything elsee
         index = 0
         for w in words:
             if "disk" in w or "pole" in w:
-                # self.log_info("######found a disk or pole")
+
                 #store our disk in 'it' to later refer to it if 'it' is used
                 if "disk" in w:
-                    # self.log_info("#####storing our dist in it: " + w)
                     self.it = w
 
+                # handling adj case
                 if "pole" in w:
                     prev_word = words[index - 1]
                     if prev_word == "left":
@@ -170,17 +185,12 @@ class MyDialog:
                 self.log_info("\"{0}\" found!".format(w))
                 result += w.title() + " "
 
+            # handling 'it' case
             if w == "it":
-                # self.log_info("########replacing it with actual disk name: " + self.it)
                 w = self.it
                 result += w.title() + " "
             index += 1
                 
-
-            #if we used it in our syntax then we replace it with the actual disk name
-
-
-
         return result
 
     def ok(self):
@@ -215,14 +225,11 @@ class MyDialog:
         self.text.insert(tk.END, '\n')
         self.text.yview(tk.END)
 
-
-
 def main():
     root = tk.Tk()
     root.title('Enter Command')
     d = MyDialog(root)
     root.wait_window(d.top)
    
-
 if __name__ == "__main__":
         main()

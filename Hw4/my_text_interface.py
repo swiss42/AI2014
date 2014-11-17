@@ -92,8 +92,16 @@ class MyDialog:
             first_command = words[:and_index]
             second_command = words[and_index + 1:]
             result = []
-            result.append(self.get_verb_phrase(first_command) + self.get_noun_phrases(first_command))
-            result.append(self.get_verb_phrase(second_command) + self.get_noun_phrases(second_command))
+            
+            temp_command1 = self.get_verb_phrase(first_command) + self.get_noun_phrases(first_command)
+            #Modify string if we are in case 2 
+            result.append(temp_command1)
+
+            ###########################################################################################
+
+            temp_command2 = self.get_verb_phrase(second_command) + self.get_noun_phrases(second_command)
+            #Modify string if we are in case 2 
+            result.append(temp_command2)
         else:
             #parse sigular
             result = self.get_verb_phrase(words) + self.get_noun_phrases(words)
@@ -109,6 +117,7 @@ class MyDialog:
             self.log_info("Case VP1 NP1 NP3 NP4 (\"Move\") found")
             self.log_info("Identifying noun phrases...")
             result = "Mov " 
+            self.case2 = self.case_2_check(words)
         elif words[0] == "pick":
             self.log_info("Case VP2 NP1 NP3 (\"Move\") found.")
             self.log_info("Identifying noun phrases...")            
@@ -120,6 +129,12 @@ class MyDialog:
         else:
             self.log_error(words, "Instructions must begin with Move, Pick or Put.")
         return result
+    def case_2_check(self, words):
+        for word in words:
+            if word == "to":
+                return True
+            if word == "from":
+                return False
     
     def get_noun_phrases(self, words):
         """

@@ -106,10 +106,17 @@ class MyDialog:
             temp_command2 = self.get_verb_phrase(second_command) + self.get_noun_phrases(second_command)
             temp_command2 = self.reorder_cmd_for_case_2(temp_command2)
             result.append(temp_command2)
+
+            # check for error in parsing
+            self.result_mul_error_check(result)
         else:
             #parse sigular
             temp_command = self.get_verb_phrase(words) + self.get_noun_phrases(words)
-            result = temp_command = self.reorder_cmd_for_case_2(temp_command)
+            temp_command = self.reorder_cmd_for_case_2(temp_command)
+
+            # check for error in parsing
+            self.result_error_check(temp_command)
+            result = temp_command
 
         return result
 
@@ -133,6 +140,7 @@ class MyDialog:
             result = "Put "
         else:
             self.log_error(words, "Instructions must begin with Move, Pick or Put.")
+            return ""
         return result
 
     def case_2_check(self, words):
@@ -152,7 +160,13 @@ class MyDialog:
 
         # VP1 NP1 NP4 NP3
         words = string.split(cmd)
-        return words[0] + " " + words[1] + " " + words[3] + " " + words[2]
+        try:
+            new_cmd = str(words[0] + " " + words[1] + " " + words[3] + " " + words[2])
+        except IndexError:
+            self.log_error("Failed to reorder command!")
+            return cmd
+
+        return new_cmd
 
     def get_noun_phrases(self, words):
         """
@@ -192,6 +206,51 @@ class MyDialog:
             index += 1
                 
         return result
+
+    def result_mul_error_check(self, result):
+        for res in result:
+
+            # check validity
+            is_valid = self.result_validate(res)
+
+            # handle validity
+            if is_valid:
+                return
+            else:
+                self.log_error ("Failed to parse command!")
+
+    def result_error_check(self, result):
+
+        # check validity
+        is_valid = self.result_validate(result)
+
+        # handle validity
+        if is_valid:
+            return
+        else:
+            self.log_error ("Failed to parse command! Please check grammar!")
+
+    def result_validate(self, result):
+        words = string.split(str(result))
+        if words[0] == "Mov":
+            try:
+                is_valid = ("Disk" in words[1]) and ("Pole" in words[2]) and ("Pole" in words[3])
+            except IndexError:
+                is_valid = False
+        elif words[0] == "Pick":
+            try:
+                is_valid = ("Disk" in words[1]) and ("Pole" in words[2])
+            except IndexError:
+                is_valid = False
+        elif words[0] == "Put":
+            try:
+                is_valid = ("Disk" in words[1]) and ("Pole" in words[2])
+            except IndexError:
+                is_valid = False
+        else:
+            is_valid = False
+
+        return is_valid
 
     def ok(self):
         if self.parsed_plan == "":
